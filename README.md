@@ -1,6 +1,5 @@
-# 418-final-project
-
-Parallel Sudoku Solver
+# Parallel Sudoku Solver
+#### By: Kevin Song and Nicholas Grill
 
 ### URL
 [https://github.com/njgrill/418-final-project](https://github.com/njgrill/418-final-project)

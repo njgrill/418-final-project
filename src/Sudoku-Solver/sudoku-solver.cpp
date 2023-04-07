@@ -10,6 +10,7 @@
 
 #include<iostream>
 #include<fstream>
+#include<cmath>
 using namespace std;
 
 /**	
@@ -18,143 +19,64 @@ using namespace std;
 */
 class SudokuFrame{
 	
-	int sudokuFrame[9][9]; //This pointer will hold all the values in the matrix.
-	int editableFrame[9][9]; //This pointer will tell us all the values which are editable.
+	// std::string outputFile = "outputs/output.txt";
+	std::string outputFile;
+	public:int gridLength = 0;
+	int** sudokuFrame; //This pointer will hold all the values in the matrix.
+	bool** editableFrame; //This pointer will tell us all the values which are editable.
 
 	/**	
 	  *	@desc This constructor calls the menu() func to provide the menu.
 	  *	@param none
 	  *	@return none
 	*/
-	public:SudokuFrame(){
-		menu();
-	}
-	
-	/**
-	  *	@desc Displays a menu to the user when the SudokuFrame objects in instantiated
-	  *	(which is basically at the start of the program) to display all possible options
-	  *	from the user.
-	  *
-	  *	@param none
-	  *	@return none
-	*/
-	private:void menu(){
-		
-		cout<<"\n======================\n";
-		cout<<"    Sudoku Solver\n";
-		cout<<"======================\n\n";
-
-		cout<<"Welcome to Sudoku Solver!\n";
-		cout<<"Before we start, you will have to input the puzzle into this program.\n\n";
-		cout<<"You can either:-\n";
-		cout<<"\t1. Input the puzzle by entering the values manually. (Enter 1)\n";
-		cout<<"\t2. Input the puzzle by reading a file with values in it. (Enter 2)\n";
-		cout<<"\t   The file must not have a name > 20 characters.\n";
-		cout<<"\t   The file must be in the same directory as this C++ file.\n";
-		cout<<"\t   The file must have all 81 values seperated with spaces.\n";
-		cout<<"\t   Blank cells must be filled in as 0 (eg; 1 0 0 2 0 0 ...).\n";
-		cout<<"\t   --> ";
-
-		int option;
-		cin>>option;
-
-		if(option==1) readFrameValues();
-		else if(option==2) readFrameValuesFile();
-		else{
-			while(true){
-				cout<<"\nYou seem to have entered an invalid option. Try again.\n";
-				cout<<"\t   --> ";
-				cin>>option;
-
-				if(option==1) readFrameValues();
-				else if(option==2) readFrameValuesFile();
-				else continue;
-
-				break;
-			}
-		}
-
+	public:SudokuFrame(std::string outputFileV = "outputs/output.txt"){
+		outputFile = outputFileV;
 	}
 
-	/**
-	  *	@desc Reads the values for the Sudoku Frame cell-by-cell.
-	  *	@param none
-	  *	@return none
-	*/
-	private:void readFrameValues(){
-		cout<<"\nEnter the specified value when prompted.\n";
-		cout<<"Enter 0 if cell is empty.\n\n";
-		
-		int rowIter, colIter;
-
-		for(rowIter=0; rowIter<9; rowIter++){ //Iterating over cells to read vals.
-			for(colIter=0; colIter<9; colIter++){
-				int enteredValue;
-
-				cout<<"Enter value for cell["<<rowIter+1<<"]["<<colIter+1<<"] --> ";
-				cin>>enteredValue;
-
-				if(!(enteredValue>=0 && enteredValue<=9)){ //Checking for bounds in input.
-					while(true){ //We loop until valid input is read from user.
-						cout<<"Oops! You seem to have entered a wrong value! Try again.\n";
-						cout<<"Enter value for cell ["<<rowIter+1<<"]["<<colIter+1<<"] --> ";
-						cin>>enteredValue;
-
-						if(enteredValue>=0 && enteredValue<=9) break;
-					}
-				}
-
-				sudokuFrame[rowIter][colIter]=enteredValue;
-
-				if(enteredValue==0) editableFrame[rowIter][colIter]=0;
-				else editableFrame[rowIter][colIter]=1;
-			}
-			cout<<"-------\n"; //Display a break after every row for convenience.
+	~SudokuFrame() {
+		if (gridLength == 0) {
+			return;
 		}
+
+		for (int row = 0; row < gridLength; row++) {
+			delete[] editableFrame[row];
+			delete[] sudokuFrame[row];
+		}
+		
+		delete[] editableFrame;
+		delete[] sudokuFrame;
 	}
-	
-	/**
-	  *	@desc Reads the values from a file containing the frame values seperated by whitespaces.
-	  *	@param none
-	  *	@return none
-	*/
-	private:void readFrameValuesFile(){
 
-		char filename[30]; //Getting filename.
+	public:void inputGrid() {
+		std::cin >> gridLength;
+		sudokuFrame = new int*[gridLength];
+		editableFrame = new bool*[gridLength];
 
-		cout<<"\nEnter the name of the file that contains the Sudoku Puzzle.\n";
-		cout<<"\t   --> ";
-		cin>>filename;
-
-		ifstream sudokuFile; //Opening file for reading.
-		sudokuFile.open(filename,ios::in);
-		
-		int rowIter, colIter;
-
-		for(rowIter=0; rowIter<9; rowIter++){ //Iterating over file values.
-			for(colIter=0; colIter<9; colIter++){
-				int readValue;
-		
-				sudokuFile>>readValue;
-
-				if(!(readValue>=0 && readValue<=9)){ //Checking bounds for input.
-					cout<<"\nValue "<<((rowIter*9)+colIter+1)<<" in "<<filename;
-					cout<<" seems to be wrong! Correct the value and try again!\n";
-					exit(EXIT_FAILURE);
-				}
-
-				sudokuFrame[rowIter][colIter]=readValue;
-
-				if(sudokuFrame[rowIter][colIter]==0) editableFrame[rowIter][colIter]=0;
-				else editableFrame[rowIter][colIter]=1;
-
-				if(sudokuFile.eof()) break; //Breaking if EOF is reached.
+		for (int row = 0; row < gridLength; row++) {
+			sudokuFrame[row] = new int[gridLength];
+			editableFrame[row] = new bool[gridLength];
+			for (int col = 0; col < gridLength; col++) {
+				std::cin >> sudokuFrame[row][col];
+				editableFrame[row][col] = true ? (sudokuFrame[row][col] == 0) : false;
 			}
 		}
-		
-		//Gotta have a line which lets us check the frame for any errors
+		printf("Input grid successful\n");
+	}
 
-		sudokuFile.close();
+	public:void outputGrid() {
+		ofstream myfile;
+		myfile.open(outputFile.c_str());
+
+		myfile << gridLength << std::endl;
+		for (int i = 0; i < gridLength; i++) {
+			for (int j = 0; j < gridLength; j++) {
+				myfile << sudokuFrame[i][j] << " ";
+			}
+			myfile << std::endl;
+		}
+
+		myfile.close();
 	}
 	
 	/**
@@ -164,7 +86,7 @@ class SudokuFrame{
 	  *	@return none
 	*/
 	public:void setCellValue(int row, int col, int num){
-		if(editableFrame[row][col]==0) sudokuFrame[row][col]=num;
+		if(editableFrame[row][col]) sudokuFrame[row][col]=num;
 	}
 	
 	/**	
@@ -185,7 +107,7 @@ class SudokuFrame{
 	  *	@return (int) 1 if editable; 0 if not
 	*/
 	public:int isEditable(int row, int col){
-		return (editableFrame[row][col]-1)*(-1);
+		return editableFrame[row][col];
 	}
 
 	/**
@@ -198,13 +120,13 @@ class SudokuFrame{
 		int jcount=0;
 		int rowIter, colIter;
 
-		for(rowIter=row; rowIter<9; rowIter++){
+		for(rowIter=row; rowIter<gridLength; rowIter++){
 			
 			if(jcount==0) colIter=col;
 			else colIter=0;
 
-			for(; colIter<9; colIter++){
-				if(editableFrame[rowIter][colIter]==0) sudokuFrame[rowIter][colIter]=0;
+			for(; colIter<gridLength; colIter++){
+				if(editableFrame[rowIter][colIter]) sudokuFrame[rowIter][colIter]=0;
 			}
 
 			jcount++;
@@ -223,11 +145,11 @@ class SudokuFrame{
 		cout<<"\033[0;36m++=====================================++";
 		int rowIter, colIter;
 
-		for(rowIter=0; rowIter<9; rowIter++){
+		for(rowIter=0; rowIter<gridLength; rowIter++){
 			int cellIter=1;
 
 			cout<<"\n\033[0;36m||";
-			for(colIter=0; colIter<9; colIter++){
+			for(colIter=0; colIter<gridLength; colIter++){
 				if(cellIter==3){
 					cout<<"\033[0m "<<sudokuFrame[rowIter][colIter]<<" ";
 					cout<<"\033[0;36m||";
@@ -409,7 +331,9 @@ class SudokuSolver{
 	  *	before and after the solving.
 	  *	@param none
 	*/
-	public:SudokuSolver(){
+	public:SudokuSolver(std::string outputFile = "outputs/output.txt"){
+		frame = SudokuFrame(outputFile);
+		frame.inputGrid();
 		recursiveCount=0;
 
 		cout<<"\nCalculating possibilities...\n";
@@ -419,9 +343,14 @@ class SudokuSolver{
 		solve();
 		cout<<"QED. Your puzzle has been solved!\n\n";
 		displayFrame();
+		frame.outputGrid();
 
 		cout<<"\n\n";
 	}
+
+	// public:~SudokuSolver() {
+	// 	frame
+	// }
 	
 	/**
 	  *	@desc Checks if the value in the specified cell is valid or not.
@@ -434,7 +363,7 @@ class SudokuSolver{
 		int rowIter, colIter;
 
 		//Checking if value exists in same column
-		for(rowIter=0; rowIter<9; rowIter++){
+		for(rowIter=0; rowIter<frame.gridLength; rowIter++){
 			if(rowIter!=row){
 				int comparingValue=frame.getCellValue(rowIter,col);
 				if(comparingValue==currentValue) return false;
@@ -442,7 +371,7 @@ class SudokuSolver{
 		}
 
 		//Checking if value exists in same row
-		for(colIter=0; colIter<9; colIter++){
+		for(colIter=0; colIter<frame.gridLength; colIter++){
 			if(colIter!=col){
 				int comparingValue=frame.getCellValue(row,colIter);
 				if(comparingValue==currentValue) return false;
@@ -463,11 +392,11 @@ class SudokuSolver{
 	  *	@return (bool) whether the value is present or not
 	*/
 	private:bool ThreeByThreeGridValid(int row, int col, int currentValue){
-		int rowStart=(row/3)*3;
-		int rowEnd=(rowStart+2);
-
-		int colStart=(col/3)*3;
-		int colEnd=(colStart+2);
+		int rowStart=(row/(int)(sqrt(frame.gridLength)))*(int)(sqrt(frame.gridLength));
+		int rowEnd=rowStart+((int)(sqrt(frame.gridLength)) - 1);
+		
+		int colStart=(col/(int)(sqrt(frame.gridLength)))*(int)(sqrt(frame.gridLength));
+		int colEnd=colStart+((int)(sqrt(frame.gridLength)) - 1);
 
 		int rowIter, colIter;
 
@@ -491,7 +420,7 @@ class SudokuSolver{
 
 		Possibilities possibilities;
 
-		for(iter=1; iter<=9; iter++){
+		for(iter=1; iter<=frame.gridLength; iter++){
 			if(cellValueValid(row,col,iter)==true)
 				possibilities.append(iter);
 		}
@@ -526,9 +455,9 @@ class SudokuSolver{
 				frame.setCellValue(row,col,possibility);
 				
 				//We now increment the col/row values for the next recursion
-				if(col<8) newCol=col+1; 
-				else if(col==8){
-					if(row==8) return 1; //this means success
+				if(col<(frame.gridLength - 1)) newCol=col+1; 
+				else if(col==(frame.gridLength - 1)){
+					if(row==(frame.gridLength - 1)) return 1; //this means success
 					newRow=row+1;
 					newCol=0;
 				}
@@ -552,9 +481,9 @@ class SudokuSolver{
 			int newRow=row, newCol=col;
 			
 			//Same incrementing of the col/row values
-			if(col<8) newCol=col+1;
-			else if(col==8){
-				if(row==8) return 1;
+			if(col<(frame.gridLength - 1)) newCol=col+1;
+			else if(col==(frame.gridLength - 1)){
+				if(row==(frame.gridLength - 1)) return 1;
 				newRow=row+1;
 				newCol=0;
 			}
@@ -604,7 +533,14 @@ class SudokuSolver{
 	
 };
 
-int main(){
-	SudokuSolver ss;
+int main(int argc, char *argv[]){
+	std::string outputFile = "outputs/output.txt";
+
+	if (argc > 1) {
+		outputFile = argv[1];
+	}
+
+	cout << outputFile << std::endl;
+	SudokuSolver ss(outputFile);
 	return 0;
 }

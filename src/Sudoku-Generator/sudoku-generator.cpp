@@ -19,6 +19,7 @@ using namespace std;
 class SudokuFrame{
 	
 	int sudokuFrame[9][9]; //This pointer will hold all the values in the matrix.
+	int editableFrame[9][9]; //This pointer will tell us all the values which are editable.
 
 	/**	
 	  *	@desc This constructor calls the menu() func to provide the menu. It also
@@ -89,6 +90,16 @@ class SudokuFrame{
 	}
 	
 	/**
+	  *	@desc Returns 0/1 depending on editableFrame values.
+	  *	@param row (int) row of the required cell
+ 	  *	@param col (int) col of the required cell
+	  *	@return (int) 1 if editable; 0 if not
+	*/
+	public:int isEditable(int row, int col){
+		return (editableFrame[row][col]-1)*(-1);
+	}
+
+	/**
 	  *	@desc Clears frame of all values, other than the question values, from
 	  *	the specified cell to the last cell.
 	  *	@param row (int) row of the specified cell
@@ -112,6 +123,38 @@ class SudokuFrame{
 		}
 	}
 
+	/**
+	  *	@desc Displays the values stored in the frame with designs. We also use
+	  *	ANSI colors, using escape sequences, to display the frame.
+	  *	@param none
+	  *	@return none
+	*/
+	public:void displayFrame(){
+
+		cout<<"\033[0;36m++=====================================++";
+		int rowIter, colIter;
+
+		for(rowIter=0; rowIter<9; rowIter++){
+			int cellIter=1;
+
+			cout<<"\n\033[0;36m||";
+			for(colIter=0; colIter<9; colIter++){
+				if(cellIter==3){
+					cout<<"\033[0m "<<sudokuFrame[rowIter][colIter]<<" ";
+					cout<<"\033[0;36m||";
+					cellIter=1;
+				}
+				else{
+					cout<<"\033[0m "<<sudokuFrame[rowIter][colIter]<<"  ";
+					cellIter++;	
+				}
+			}
+
+			if(rowIter%3!=2) cout<<"\n\033[0;36m++-----------++-----------++-----------++";
+			else cout<<"\n\033[0;36m++=====================================++";
+		}
+
+	}
 };
 
 

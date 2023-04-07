@@ -11,6 +11,7 @@
 #include<iostream>
 #include<fstream>
 #include<cmath>
+#include "../timing.h"
 using namespace std;
 
 /**	
@@ -541,6 +542,9 @@ int main(int argc, char *argv[]){
 	}
 
 	cout << outputFile << std::endl;
+
+	Timer totalSolveTimer;
 	SudokuSolver ss(outputFile);
+	printf("Total solve time: %.6fs\n", totalSolveTimer.elapsed());
 	return 0;
 }

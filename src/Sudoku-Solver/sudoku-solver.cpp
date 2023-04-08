@@ -112,6 +112,26 @@ class SudokuFrame{
 	}
 
 	/**
+	  *	@desc sets editableFrame value to 1 (unlock value)??
+	  *	@param row (int) row of the required cell
+ 	  *	@param col (int) col of the required cell
+	  *	@return none
+	*/
+	/*public:void setIsEditable(int row, int col){
+		editableFrame[row][col] = 1;
+	}*/
+
+	/**
+	  *	@desc sets editableFrame value to 0 (lock value).
+	  *	@param row (int) row of the required cell
+ 	  *	@param col (int) col of the required cell
+	  *	@return none
+	*/
+	public:void setNotEditable(int row, int col){
+		editableFrame[row][col] = 0;
+	}
+
+	/**
 	  *	@desc Clears frame of all values, other than the question values, from
 	  *	the specified cell to the last cell.
 	  *	@param row (int) row of the specified cell
@@ -254,11 +274,11 @@ class Possibilities{
 	*/
 	public:void print(){
 		pos=head->next;
-		while(pos!=NULL){
+		while (pos != NULL) {
 			cout<<pos->value<<",";
 			pos=pos->next;
 		}
-		cout<<"\b";
+		cout<<"\n";
 	}
 
 	/**
@@ -301,6 +321,22 @@ class Possibilities{
 	}
 	
 	/**
+	  *	@desc This function searches the possibilties for a certain int value.
+	  *	@param int (value) the search value
+	  *	@return bool (output) true if value found, false otherwise
+	*/
+	public:bool searchFor(int value){
+		pos = head;
+		while(pos != NULL){
+			if (pos->value == value) {
+				return true;
+			}
+			pos=pos->next;
+		}
+		return false;
+	}
+
+	/**
 	  *	@desc Frees all the nodes in the linked list.
 	  *	@param none
 	  *	@return none
@@ -325,6 +361,7 @@ class SudokuSolver{
 	
 	int recursiveCount; //Stats variable
 	SudokuFrame frame; //The frame object
+	Possibilities** gridPoss;
 	
 	/**
 	  *	@desc The constructor initialises the recursiveCount variable and also calls
@@ -337,7 +374,8 @@ class SudokuSolver{
 		frame.inputGrid();
 		recursiveCount=0;
 
-		cout<<"\nCalculating possibilities...\n";
+		cout<<"\nCalculating possibilities...\n"; // make this actually true
+		patternSolve();
 		cout<<"Backtracking across puzzle....\n";
 		cout<<"Validating cells and values...\n\n";
 		
@@ -421,6 +459,11 @@ class SudokuSolver{
 
 		Possibilities possibilities;
 
+		// if a frame isn't editable, there are no "possibilities"
+		if(!frame.isEditable(row,col)){
+			return possibilities;
+		}
+
 		for(iter=1; iter<=frame.gridLength; iter++){
 			if(cellValueValid(row,col,iter)==true)
 				possibilities.append(iter);
@@ -445,7 +488,9 @@ class SudokuSolver{
 
 		if(frame.isEditable(row,col)==true){
 
+			//Possibilities possibilities; // TODO: rm
 			Possibilities possibilities;
+			//possibilities.copy(gridPoss[row][col]);
 			possibilities.copy(getCellPossibilities(row,col));
 
 			int posLength=possibilities.length();
@@ -463,13 +508,13 @@ class SudokuSolver{
 					newCol=0;
 				}
 
+				// Recursive call is here
 				{
-
 					if(singleCellSolve(newRow,newCol)==0){ //If wrong, clear frame and start over
 						frame.clearFrameFrom(newRow,newCol);
 					}
 					else return 1;
-
+				
 				} //Recursion block ends here
 
 			} //Loop ends here
@@ -503,7 +548,47 @@ class SudokuSolver{
 	private:void solve(){
 		int success=singleCellSolve(0,0);
 	}
-	
+
+	/**
+	  *	@desc Uses patterns in rows/cols/subgrids to eliminate possibilities.
+	  *	@param none
+	  *	@return none
+	*/
+	private:void patternSolve(){
+
+		//initialize global possibilities
+		int gridLen = frame.gridLength;
+		gridPoss = new Possibilities*[gridLen];
+		
+		// iterate for each cell
+		for (int row = 0; row < gridLen; row++) {
+			gridPoss[row] = new Possibilities[gridLen];
+			for (int col = 0; col < gridLen; col++) {
+				gridPoss[row][col].copy(getCellPossibilities(row, col));
+				gridPoss[row][col].print();
+			}
+		}
+
+		bool unchanged = false;
+		while(!unchanged){
+			unchanged = true;
+			// Apply single-elimination
+			for (int row = 0; row < gridLen; row++) {
+				for (int col = 0; col < gridLen; col++) {
+					if(gridPoss[row][col].length() == 1){
+						unchanged = false;
+						frame.setCellValue(row,col,gridPoss[row][col][0]);
+						frame.setNotEditable(row, col);
+						gridPoss[row][col].copy(getCellPossibilities(row, col));
+						
+						cout << "R" << row << "C" << col << "elim\n";
+					}
+				}
+			}
+		}
+		
+	}
+
 	/**
 	  *	@desc Displays the sudoku frame by calling the displayFrame() func of the
 	  *	SudokuFrame object.

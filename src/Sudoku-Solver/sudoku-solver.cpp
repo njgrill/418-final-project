@@ -128,7 +128,7 @@ class SudokuFrame{
 	  *	@return none
 	*/
 	public:void setNotEditable(int row, int col){
-		editableFrame[row][col] = 0;
+		editableFrame[row][col] = false;
 	}
 
 	/**
@@ -309,6 +309,7 @@ class Possibilities{
 		int iter=0;
 		
 		pos=head;
+		pos->next = NULL; // todo: consider lack of free-ing
 		for(iter=0; iter<oldLength; iter++){
 			Node temp=new struct node;
 
@@ -581,7 +582,7 @@ class SudokuSolver{
 						frame.setNotEditable(row, col);
 						gridPoss[row][col].copy(getCellPossibilities(row, col));
 						
-						cout << "R" << row << "C" << col << "elim\n";
+						cout << "R" << row << "C" << col << "elim, len " << gridPoss[row][col].length() << "\n";
 					}
 				}
 			}

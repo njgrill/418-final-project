@@ -570,6 +570,7 @@ class SudokuSolver{
 	private:void patternSolve(){
 
 		//initialize global possibilities / useful vars
+		
 		int gridLen = frame.gridLength;
 		int subGridLen = (int)(sqrt(frame.gridLength));
 		gridPoss = new Possibilities*[gridLen];		
@@ -579,7 +580,6 @@ class SudokuSolver{
 			gridPoss[row] = new Possibilities[gridLen];
 			for (int col = 0; col < gridLen; col++) {
 				gridPoss[row][col].copy(getCellPossibilities(row, col));
-				//gridPoss[row][col].print();
 			}
 		}
 
@@ -597,7 +597,7 @@ class SudokuSolver{
 						frame.setCellValue(row,col,gridPoss[row][col][0]);
 						frame.setNotEditable(row, col);
 						gridPoss[row][col].copy(getCellPossibilities(row, col));
-						cout << "R" << row << "C" << col << " - Elim - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
+						//cout << "R" << row << "C" << col << " - Elim - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
 					}
 				}
 			}
@@ -627,7 +627,6 @@ class SudokuSolver{
 			int *checkRow = new int[gridLen]; 
 			 
 			for (int row = 0; row < gridLen; row++) {
-				cout << "row "<< row << "\n";
 				
 				// initialize array to zeroes
 				for (int i = 0; i < gridLen; i++){
@@ -678,8 +677,7 @@ class SudokuSolver{
 						unchanged = false;
 						frame.setCellValue(row, col, i + 1);
 						frame.setNotEditable(row, col);
-						//gridPoss[row][col].copy(getCellPossibilities(row, col));
-						cout << "R" << row << "C" << col << " - LR(Row) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
+						//cout << "R" << row << "C" << col << " - LR(Row) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
 						
 					}
 					
@@ -687,7 +685,6 @@ class SudokuSolver{
 			}
 
 			// check columns
-			cout << "checkCol\n";
 			for (int col = 0; col < gridLen; col++) {
 				
 				// if no duplicates, it's altering time
@@ -697,18 +694,17 @@ class SudokuSolver{
 						unchanged = false;
 						frame.setCellValue(row, col, i + 1);
 						frame.setNotEditable(row, col);
-						//gridPoss[row][col].copy(getCellPossibilities(row, col));
-						cout << "R" << row << "C" << col << " - LR(Col) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
+						//cout << "R" << row << "C" << col << " - LR(Col) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
 					}
 				}
 			}
 
 			// check subGrids
-			cout << "checkSub\n";
 			for (int subGrid = 0; subGrid < gridLen; subGrid++) {
 				// if no duplicates, it's altering time
 				for (int i = 0; i < gridLen; i++){ // i = possibility value
 					if (checkSub[subGrid][i] != -2 && checkSub[subGrid][i] != -1) {
+						// calculate true row/col 
 						int rawVal = checkSub[subGrid][i];
 						int row = rawVal / subGridLen + 
 							(subGrid / subGridLen) * subGridLen;
@@ -717,8 +713,7 @@ class SudokuSolver{
 						unchanged = false;
 						frame.setCellValue(row, col, i + 1);
 						frame.setNotEditable(row, col);
-						//gridPoss[row][col].copy(getCellPossibilities(row, col));
-						cout << "R" << row << "C" << col << " - LR(subGrid) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
+						//cout << "R" << row << "C" << col << " - LR(subGrid) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
 					}
 				}
 			}
@@ -740,6 +735,21 @@ class SudokuSolver{
 
 		}
 		
+		// a check for if the patterns have already solved the puzzle 
+		bool isSolved = true;
+		
+		for (int row = 0; row < gridLen && isSolved; row++) {
+			for (int col = 0; col < gridLen && isSolved; col++) {
+				if (frame.getCellValue(row, col) == 0){
+					isSolved = false;
+				}
+			}
+		}
+		
+		if (isSolved) { 
+			cout << "Solved after pattern application!\n";
+		}
+
 	}
 
 	/**

@@ -304,7 +304,7 @@ class Possibilities{
 	  *	@param possibilities (Possibilities) the object which is to be copied
 	  *	@return none
 	*/
-	public:void copy(Possibilities possibilities){ //Need to make this clear the old list if exists
+	public:void copy(Possibilities possibilities){ // Need to make this clear the old list if exists
 		int oldLength=possibilities.length();
 		int iter=0;
 		
@@ -510,13 +510,11 @@ class SudokuSolver{
 				}
 
 				// Recursive call is here
-				{
-					if(singleCellSolve(newRow,newCol)==0){ //If wrong, clear frame and start over
-						frame.clearFrameFrom(newRow,newCol);
-					}
-					else return 1;
-				
-				} //Recursion block ends here
+				if(singleCellSolve(newRow,newCol)==0){ //If wrong, clear frame and start over
+					frame.clearFrameFrom(newRow,newCol);
+				}
+				else return 1;
+				//Recursion block ends here
 
 			} //Loop ends here
 
@@ -551,29 +549,47 @@ class SudokuSolver{
 	}
 
 	/**
+	  *	@desc update global possibilities array.
+	  *	@param none
+	  *	@return none
+	*/
+	private:void updatePoss(){
+		int gridLen = frame.gridLength;
+		for (int row = 0; row < gridLen; row++) {
+			for (int col = 0; col < gridLen; col++) {
+				gridPoss[row][col].copy(getCellPossibilities(row, col));
+			}
+		}
+	}
+
+	/**
 	  *	@desc Uses patterns in rows/cols/subgrids to eliminate possibilities.
 	  *	@param none
 	  *	@return none
 	*/
 	private:void patternSolve(){
 
-		//initialize global possibilities
+		//initialize global possibilities / useful vars
 		int gridLen = frame.gridLength;
-		gridPoss = new Possibilities*[gridLen];
+		int subGridLen = (int)(sqrt(frame.gridLength));
+		gridPoss = new Possibilities*[gridLen];		
 		
 		// iterate for each cell
 		for (int row = 0; row < gridLen; row++) {
 			gridPoss[row] = new Possibilities[gridLen];
 			for (int col = 0; col < gridLen; col++) {
 				gridPoss[row][col].copy(getCellPossibilities(row, col));
-				gridPoss[row][col].print();
+				//gridPoss[row][col].print();
 			}
 		}
 
+		// the main loop begins
 		bool unchanged = false;
 		while(!unchanged){
 			unchanged = true;
+
 			// Apply single-elimination
+
 			for (int row = 0; row < gridLen; row++) {
 				for (int col = 0; col < gridLen; col++) {
 					if(gridPoss[row][col].length() == 1){
@@ -581,11 +597,147 @@ class SudokuSolver{
 						frame.setCellValue(row,col,gridPoss[row][col][0]);
 						frame.setNotEditable(row, col);
 						gridPoss[row][col].copy(getCellPossibilities(row, col));
-						
-						cout << "R" << row << "C" << col << "elim, len " << gridPoss[row][col].length() << "\n";
+						cout << "R" << row << "C" << col << " - Elim - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
 					}
 				}
 			}
+
+			updatePoss();
+
+			// Apply lone rangers (LRs)
+
+			// init columns arrays and subGrid arrays
+			// index1 = colNum / subGrid
+			// index2 = 0 to (gridLen-1) value (add 1 for cell value)
+			// value = row / subGrid of LR, or NA (-2 or -1)
+			int **checkCol = new int*[gridLen];
+			int **checkSub = new int*[gridLen];
+			for (int i = 0; i < gridLen; i++) {
+				checkCol[i] = new int[gridLen];
+				checkSub[i] = new int[gridLen];
+				for (int j = 0; j < gridLen; j++) {
+					checkCol[i][j] = -2;
+					checkSub[i][j] = -2;
+				}
+			}
+			
+			// check by rows first
+			// index = 0 to (gridLen-1) value (add 1 for cell value)
+			// value = column of LR, or NA
+			int *checkRow = new int[gridLen]; 
+			 
+			for (int row = 0; row < gridLen; row++) {
+				cout << "row "<< row << "\n";
+				
+				// initialize array to zeroes
+				for (int i = 0; i < gridLen; i++){
+					checkRow[i] = -2;
+				}
+
+				// iterate over columns
+				for (int col = 0; col < gridLen; col++) {
+
+					int subGridInd = ((row / subGridLen) * subGridLen) 
+						+ (col / subGridLen);
+
+					// go through each cell to count possibilities.
+					for (int i = 0; i < gridPoss[row][col].length(); i++) {
+						int possVal = gridPoss[row][col][i] - 1; 
+
+						// update row array
+						if (checkRow[possVal] == -2) {
+							checkRow[possVal] = col;
+						}
+						else { 
+							checkRow[possVal] = -1;
+						}
+
+						// save to column array to check later
+						if (checkCol[col][possVal] == -2) {
+							checkCol[col][possVal] = row;
+						}
+						else { 
+							checkCol[col][possVal] = -1;
+						}
+
+						// save to subGrid array to check later
+						if (checkSub[subGridInd][possVal] == -2) {
+							checkSub[subGridInd][possVal] = (row % subGridLen) 
+								* subGridLen + (col % subGridLen);
+						}
+						else { 
+							checkSub[subGridInd][possVal] = -1;
+						}
+					}
+				}
+
+				// if no duplicates, it's altering time
+				for (int i = 0; i < gridLen; i++){ // i = possibility value
+					if (checkRow[i] != -2 && checkRow[i] != -1) {
+						int col = checkRow[i];
+						unchanged = false;
+						frame.setCellValue(row, col, i + 1);
+						frame.setNotEditable(row, col);
+						//gridPoss[row][col].copy(getCellPossibilities(row, col));
+						cout << "R" << row << "C" << col << " - LR(Row) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
+						
+					}
+					
+				}	
+			}
+
+			// check columns
+			cout << "checkCol\n";
+			for (int col = 0; col < gridLen; col++) {
+				
+				// if no duplicates, it's altering time
+				for (int i = 0; i < gridLen; i++){ // i = possibility value
+					if (checkCol[col][i] != -2 && checkCol[col][i] != -1) {
+						int row = checkCol[col][i];
+						unchanged = false;
+						frame.setCellValue(row, col, i + 1);
+						frame.setNotEditable(row, col);
+						//gridPoss[row][col].copy(getCellPossibilities(row, col));
+						cout << "R" << row << "C" << col << " - LR(Col) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
+					}
+				}
+			}
+
+			// check subGrids
+			cout << "checkSub\n";
+			for (int subGrid = 0; subGrid < gridLen; subGrid++) {
+				// if no duplicates, it's altering time
+				for (int i = 0; i < gridLen; i++){ // i = possibility value
+					if (checkSub[subGrid][i] != -2 && checkSub[subGrid][i] != -1) {
+						int rawVal = checkSub[subGrid][i];
+						int row = rawVal / subGridLen + 
+							(subGrid / subGridLen) * subGridLen;
+						int col = rawVal % subGridLen +
+							(subGrid % subGridLen) * subGridLen;
+						unchanged = false;
+						frame.setCellValue(row, col, i + 1);
+						frame.setNotEditable(row, col);
+						//gridPoss[row][col].copy(getCellPossibilities(row, col));
+						cout << "R" << row << "C" << col << " - LR(subGrid) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
+					}
+				}
+			}
+			
+			// delete arrays
+			delete[] checkRow;
+			for (int i = 0; i < gridLen; i++) {
+				delete[] checkCol[i];
+				delete[] checkSub[i];
+			}
+			delete[] checkCol;
+			delete[] checkSub;
+
+			// restart loop if changed
+			if (!unchanged){
+				updatePoss();
+				continue;
+			}
+
 		}
 		
 	}

@@ -9,13 +9,16 @@ HEADERS := src/*.h
 .SUFFIXES:
 .PHONY: all clean
 
-all: sudoku-generator sudoku-solver sudoku-validator
+all: sudoku-generator sudoku-solver-seq sudoku-solver sudoku-validator
 
-sudoku-generator: $(HEADERS) src/Sudoku-Generator/*.cpp
-	$(CXX) -o $@ $(CFLAGS) src/Sudoku-Generator/*.cpp
+sudoku-generator: $(HEADERS) src/Sudoku-Generator/sudoku-generator.cpp
+	$(CXX) -o $@ $(CFLAGS) src/Sudoku-Generator/sudoku-generator.cpp
 
-sudoku-solver: $(HEADERS) src/Sudoku-Solver/*.cpp
-	$(CXX) -o $@ $(CFLAGS) src/Sudoku-Solver/*.cpp
+sudoku-solver-seq: $(HEADERS) src/Sudoku-Solver/sudoku-solver-seq.cpp
+	$(CXX) -o $@ $(CFLAGS) src/Sudoku-Solver/sudoku-solver-seq.cpp
+
+sudoku-solver: $(HEADERS) src/Sudoku-Solver/sudoku-solver.cpp
+	$(CXX) -o $@ $(CFLAGS) src/Sudoku-Solver/sudoku-solver.cpp
 
 sudoku-validator: $(HEADERS) src/Sudoku-Validator/*.cpp
 	$(CXX) -o $@ $(CFLAGS) src/Sudoku-Validator/*.cpp

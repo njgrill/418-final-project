@@ -11,8 +11,20 @@
 #include<iostream>
 #include<fstream>
 #include<cmath>
+#include<stack>
+#include<vector>
+#include<set>
+#include<omp.h>
 #include "../timing.h"
+// #define  printToggle(...) (printf(__VA_ARGS__))
+#define  printToggle(...) (0)
 using namespace std;
+
+const int NUM_PROCESSORS = 8;
+enum solType { no_solution, local_solution, global_solution, none };
+// const int NO_SOLUTION = 0;
+// const int LOCAL_SOLUTION = 1;
+// const int GLOBAL_SOLUTION = 2;
 
 /**	
   *	This class provides a data structure which can hold and manipulate the values in a sudoku puzzle.
@@ -26,8 +38,14 @@ private:
 
 public:
 
-	int** sudokuFrame; //This pointer will hold all the values in the matrix.
-	bool** editableFrame; //This pointer will tell us all the values which are editable.
+	// int** sudokuFrame; //This pointer will hold all the values in the matrix.
+	// bool** editableFrame; //This pointer will tell us all the values which are editable.
+	std::vector<std::vector<int>> sudokuFrame; //This pointer will hold all the values in the matrix.
+	std::vector<std::vector<bool>> editableFrame; //This pointer will tell us all the values which are editable.
+	int startRow = 0;	// This is how far back the backtracking should go before taking new board from the stack
+	int startCol = 0;	// ......................................................................................
+	int row = 0;
+	int col = 0;
 	int gridLength = 0;
 
 	/**	
@@ -39,28 +57,108 @@ public:
 		outputFile = outputFileV;
 	}
 
-	~SudokuFrame() {
-		if (gridLength == 0) {
-			return;
-		}
+	// Copy constructor
+	SudokuFrame(const SudokuFrame &oldFrame) {
+		printToggle("Calling copy constructor...\n");
+		gridLength = oldFrame.gridLength;
+		startRow = oldFrame.startRow;
+		startCol = oldFrame.startCol;
+		row = oldFrame.row;
+		col = oldFrame.col;
+		sudokuFrame.resize(gridLength);
+		editableFrame.resize(gridLength);
 
 		for (int row = 0; row < gridLength; row++) {
-			delete[] editableFrame[row];
-			delete[] sudokuFrame[row];
+			sudokuFrame[row].resize(gridLength);
+			editableFrame[row].resize(gridLength);
+			for (int col = 0; col < gridLength; col++) {
+				sudokuFrame[row][col] = oldFrame.sudokuFrame[row][col];
+				editableFrame[row][col] = oldFrame.editableFrame[row][col];
+			}
 		}
+	}
+
+	// // Copy constructor
+	// SudokuFrame(const SudokuFrame &oldFrame) {
+	// 	printToggle("Calling copy constructor...\n");
+	// 	gridLength = oldFrame.gridLength;
+	// 	startRow = oldFrame.startRow;
+	// 	startCol = oldFrame.startCol;
+	// 	row = oldFrame.row;
+	// 	col = oldFrame.col;
+	// 	sudokuFrame = new int*[gridLength];
+	// 	editableFrame = new bool*[gridLength];
+
+	// 	for (int row = 0; row < gridLength; row++) {
+	// 		sudokuFrame[row] = new int[gridLength];
+	// 		editableFrame[row] = new bool[gridLength];
+	// 		for (int col = 0; col < gridLength; col++) {
+	// 			sudokuFrame[row][col] = oldFrame.sudokuFrame[row][col];
+	// 			editableFrame[row][col] = oldFrame.editableFrame[row][col];
+	// 		}
+	// 	}
+	// }
+
+	~SudokuFrame() {
+		printToggle("Calling delete constructor...\n");
+	}
+	// ~SudokuFrame() {
+	// 	printToggle("Calling delete constructor...\n");
+	// 	if (gridLength == 0) {
+	// 		return;
+	// 	}
+
+	// 	for (int row = 0; row < gridLength; row++) {
+	// 		delete[] editableFrame[row];
+	// 		delete[] sudokuFrame[row];
+	// 	}
 		
-		delete[] editableFrame;
-		delete[] sudokuFrame;
+	// 	delete[] editableFrame;
+	// 	delete[] sudokuFrame;
+	// }
+
+	bool findNextRowCol() {
+		while (row < gridLength && !editableFrame[row][col]) {
+			updateRowCol();
+		}
+
+		return row < gridLength;
+	}
+
+	bool findPrevRowCol() {
+		decrementRowCol();
+		while (row >= 0 && !editableFrame[row][col]) {
+			decrementRowCol();
+		}
+
+		return row >= 0;
+	}
+	
+	bool updateRowCol() {
+		col = (col + 1) % gridLength;
+		row = row + (1 ? col == 0 : 0);
+
+		return row < gridLength;
+	}
+
+	inline bool decrementRowCol() {
+		col = (col + gridLength - 1) % gridLength;
+		row = row - (1 ? col == (gridLength - 1) : 0);
+		return row >= 0;
+	}
+
+	inline int getDepth() {
+		return row * gridLength + col;
 	}
 
 	void inputGrid() {
 		std::cin >> gridLength;
-		sudokuFrame = new int*[gridLength];
-		editableFrame = new bool*[gridLength];
+		sudokuFrame.resize(gridLength);
+		editableFrame.resize(gridLength);
 
 		for (int row = 0; row < gridLength; row++) {
-			sudokuFrame[row] = new int[gridLength];
-			editableFrame[row] = new bool[gridLength];
+			sudokuFrame[row].resize(gridLength);
+			editableFrame[row].resize(gridLength);
 			for (int col = 0; col < gridLength; col++) {
 				std::cin >> sudokuFrame[row][col];
 				editableFrame[row][col] = true ? (sudokuFrame[row][col] == 0) : false;
@@ -68,6 +166,21 @@ public:
 		}
 		printf("Input grid successful\n");
 	}
+	// void inputGrid() {
+	// 	std::cin >> gridLength;
+	// 	sudokuFrame = new int*[gridLength];
+	// 	editableFrame = new bool*[gridLength];
+
+	// 	for (int row = 0; row < gridLength; row++) {
+	// 		sudokuFrame[row] = new int[gridLength];
+	// 		editableFrame[row] = new bool[gridLength];
+	// 		for (int col = 0; col < gridLength; col++) {
+	// 			std::cin >> sudokuFrame[row][col];
+	// 			editableFrame[row][col] = true ? (sudokuFrame[row][col] == 0) : false;
+	// 		}
+	// 	}
+	// 	printToggle("Input grid successful\n");
+	// }
 
 	void outputGrid() {
 		ofstream myfile;
@@ -334,6 +447,11 @@ private:
 	int recursiveCount; //Stats variable
 	SudokuFrame frame; //The frame object
 
+	// Create shared variables
+	bool isSolved = false;
+	int needMoreGrids = 0;
+	std::stack<SudokuFrame> gridStack;
+
 	/**
 	  *	@desc Checks if the value in the specified cell is valid or not.
 	  *	@param row (int) row of the required value
@@ -341,27 +459,27 @@ private:
 	  *	@param currentValue (int) the required value
 	  *	@return (bool) whether the value is valid or not in the sudoku frame
 	*/
-	bool cellValueValid(int row, int col, int currentValue){
+	bool cellValueValid(SudokuFrame &currFrame, int currentValue){
 		int rowIter, colIter;
+		int row = currFrame.row;
+		int col = currFrame.col;
 
 		//Checking if value exists in same column
-		for(rowIter=0; rowIter<frame.gridLength; rowIter++){
-			if(rowIter!=row){
-				int comparingValue=frame.getCellValue(rowIter,col);
-				if(comparingValue==currentValue) return false;
+		for(rowIter=0; rowIter < currFrame.gridLength; rowIter++){
+			if(rowIter != row){
+				if (currFrame.sudokuFrame[rowIter][col] == currentValue) return false;
 			}
 		}
 
 		//Checking if value exists in same row
-		for(colIter=0; colIter<frame.gridLength; colIter++){
-			if(colIter!=col){
-				int comparingValue=frame.getCellValue(row,colIter);
-				if(comparingValue==currentValue) return false;
+		for(colIter = 0; colIter < frame.gridLength; colIter++){
+			if(colIter != col){
+				if (currFrame.sudokuFrame[row][colIter] == currentValue) return false;
 			}
 		}
 
 		//Checking if value exists in the same 3x3 square block
-		if(ThreeByThreeGridValid(row,col,currentValue)==false) return false;
+		if (ThreeByThreeGridValid(currFrame, currentValue) == false) return false;
 
 		return true;
 	}
@@ -373,107 +491,254 @@ private:
 	  *	@param currentValue (int) required value
 	  *	@return (bool) whether the value is present or not
 	*/
-	bool ThreeByThreeGridValid(int row, int col, int currentValue){
-		int rowStart=(row/(int)(sqrt(frame.gridLength)))*(int)(sqrt(frame.gridLength));
-		int rowEnd=rowStart+((int)(sqrt(frame.gridLength)) - 1);
+	bool ThreeByThreeGridValid(SudokuFrame &currFrame, int currentValue){
+		int row = currFrame.row;
+		int col = currFrame.col;
+
+		int rowStart=(row/(int)(sqrt(currFrame.gridLength)))*(int)(sqrt(currFrame.gridLength));
+		int rowEnd=rowStart+((int)(sqrt(currFrame.gridLength)) - 1);
 		
-		int colStart=(col/(int)(sqrt(frame.gridLength)))*(int)(sqrt(frame.gridLength));
-		int colEnd=colStart+((int)(sqrt(frame.gridLength)) - 1);
+		int colStart=(col/(int)(sqrt(currFrame.gridLength)))*(int)(sqrt(currFrame.gridLength));
+		int colEnd=colStart+((int)(sqrt(currFrame.gridLength)) - 1);
 
 		int rowIter, colIter;
 
 		for(rowIter=rowStart; rowIter<=rowEnd; rowIter++){
 			for(colIter=colStart; colIter<=colEnd; colIter++){
-				if(frame.getCellValue(rowIter,colIter)==currentValue) return false;
+				if((rowIter != row || colIter != col) && currFrame.sudokuFrame[rowIter][colIter] == currentValue) return false;
 			}
 		}
 
 		return true;	
 	}
 	
-	/**
-	  *	@desc Gets the possible values and assigns them to the possibilities list.
-	  *	@param row (int) row of the specified cell
-	  *	@param col (int) col of the specified cell
-	  *	@return (Possibilities) Possibilities object containing all the possible values.
-	*/
-	Possibilities getCellPossibilities(int row, int col){
-		int iter=0;
+	// /**
+	//   *	@desc Gets the possible values and assigns them to the possibilities list.
+	//   *	@param row (int) row of the specified cell
+	//   *	@param col (int) col of the specified cell
+	//   *	@return (Possibilities) Possibilities object containing all the possible values.
+	// */
+	// Possibilities getCellPossibilities(int row, int col){
+	// 	int iter=0;
 
-		Possibilities possibilities;
+	// 	Possibilities possibilities;
 
-		for(iter=1; iter<=frame.gridLength; iter++){
-			if(cellValueValid(row,col,iter)==true)
-				possibilities.append(iter);
+	// 	for(iter=1; iter<=frame.gridLength; iter++){
+	// 		if(cellValueValid(row,col,iter)==true)
+	// 			possibilities.append(iter);
+	// 	}
+
+	// 	return possibilities;
+	// }
+
+	std::vector<int> getCellPossibilities(SudokuFrame &currFrame){
+		int iter = 0;
+		int row = currFrame.row;
+		int col = currFrame.col;
+
+		std::vector<int> possibilities;
+		std::set<int> possibilitiesSet;
+
+		// Add all items to set initially
+		for (int i = 1; i <= currFrame.gridLength; i++) {
+			possibilitiesSet.insert(i);
+		}
+
+		// Removing values in same column
+		for(int rowIter = 0; rowIter < currFrame.gridLength; rowIter++){
+			if(rowIter != row){
+				possibilitiesSet.erase(currFrame.sudokuFrame[rowIter][col]);
+			}
+		}
+
+		// Remoiving values in same row
+		for(int colIter = 0; colIter < frame.gridLength; colIter++){
+			if(colIter != col){
+				possibilitiesSet.erase(currFrame.sudokuFrame[row][colIter]);
+			}
+		}
+
+		// Removing values in same square
+		int rowStart=(row/(int)(sqrt(currFrame.gridLength)))*(int)(sqrt(currFrame.gridLength));
+		int rowEnd=rowStart+((int)(sqrt(currFrame.gridLength)) - 1);
+		
+		int colStart=(col/(int)(sqrt(currFrame.gridLength)))*(int)(sqrt(currFrame.gridLength));
+		int colEnd=colStart+((int)(sqrt(currFrame.gridLength)) - 1);
+
+		for(int rowIter = rowStart; rowIter <= rowEnd; rowIter++){
+			for(int colIter = colStart; colIter <= colEnd; colIter++){
+				if (rowIter != row || colIter != col) {
+					possibilitiesSet.erase(currFrame.sudokuFrame[rowIter][colIter]);
+				}
+			}
+		}
+
+		for (auto elem : possibilitiesSet) {
+			possibilities.push_back(elem);
 		}
 
 		return possibilities;
 	}
 	
-	/**	
-	  *	@desc The recursive function which does all the work, this iterates over the
-	  *	possible values for the specified cell one-by-one. Once a value has been filled, it
-	  *	goes to the next cell. Here, the same thing happens. If none of the possible values
-	  *	work out, then the function backtracks to the previous cell.
-  	  *
-	  *	@param row (int) row of the specified cell
-	  *	@param col (int) col of the specified cell
-	  *	@return (int) whether the value put in the cell made it a SUCCESS or NOT
-	*/
-	int singleCellSolve(int row, int col){
+	// /**	
+	//   *	@desc The recursive function which does all the work, this iterates over the
+	//   *	possible values for the specified cell one-by-one. Once a value has been filled, it
+	//   *	goes to the next cell. Here, the same thing happens. If none of the possible values
+	//   *	work out, then the function backtracks to the previous cell.
+  	//   *
+	//   *	@param row (int) row of the specified cell
+	//   *	@param col (int) col of the specified cell
+	//   *	@return (int) whether the value put in the cell made it a SUCCESS or NOT
+	// */
+	// int singleCellSolve(SudokuFrame &currFrame, int row, int col) {
 		
-		statsIncrement(); //This is used to see how many times the func is called.
+	// 	statsIncrement(); //This is used to see how many times the func is called.
 
-		if(frame.isEditable(row,col)==true){
+	// 	if(frame.isEditable(row,col)==true){
 
-			Possibilities possibilities;
-			possibilities.copy(getCellPossibilities(row,col));
+	// 		Possibilities possibilities;
+	// 		possibilities.copy(getCellPossibilities(row,col));
 
-			int posLength=possibilities.length();
-			int newRow=row, newCol=col;
+	// 		int posLength=possibilities.length();
+	// 		int newRow=row, newCol=col;
 
-			for(int posIter=0; posIter<posLength; posIter++){ //We iter over the possible values
-				int possibility=possibilities[posIter];
-				frame.setCellValue(row,col,possibility);
+	// 		for(int posIter=0; posIter<posLength; posIter++){ //We iter over the possible values
+	// 			int possibility=possibilities[posIter];
+	// 			frame.setCellValue(row,col,possibility);
+				
+	// 			//We now increment the col/row values for the next recursion
+	// 			if(col<(frame.gridLength - 1)) newCol=col+1; 
+	// 			else if(col==(frame.gridLength - 1)){
+	// 				if(row==(frame.gridLength - 1)) return 1; //this means success
+	// 				newRow=row+1;
+	// 				newCol=0;
+	// 			}
+
+	// 			{
+
+	// 				if(singleCellSolve(newRow,newCol)==0){ //If wrong, clear frame and start over
+	// 					frame.clearFrameFrom(newRow,newCol);
+	// 				}
+	// 				else return 1;
+
+	// 			} //Recursion block ends here
+
+	// 			} //Loop ends here
+
+	// 		return 0;
+			
+	// 	} //The isEditable() if block ends here.
+	// 	else{
+
+	// 		int newRow=row, newCol=col;
+			
+	// 		//Same incrementing of the col/row values
+	// 		if(col<(frame.gridLength - 1)) newCol=col+1;
+	// 		else if(col==(frame.gridLength - 1)){
+	// 			if(row==(frame.gridLength - 1)) return 1;
+	// 			newRow=row+1;
+	// 			newCol=0;
+	// 		}
+
+	// 		return singleCellSolve(newRow,newCol);
+
+	// 	} //The else block ends here
+
+	// }
+
+	solType parallelSolve(SudokuFrame &currFrame, int threadId) {
+		
+		if (isSolved) {
+			// Another thread has a valid solution
+			return global_solution;
+		} else if (currFrame.row == currFrame.gridLength && currFrame.col == 0) {
+			// We have a valid solution
+			// currFrame.displayFrame();
+			// auto temp = std::cin.get();
+			return local_solution;
+		}
+
+		// Try a value in an editable cell
+		int row = currFrame.row;
+		int col = currFrame.col;
+		if(currFrame.editableFrame[row][col]) {
+
+			std::vector<int> possibilities = getCellPossibilities(currFrame);
+			// if (threadId == 0) {
+			// 	printf("(%d, %d)\n", row, col);
+			// }
+
+			// Iterate over possible values
+			for(int posIter = 0; posIter < possibilities.size(); posIter++) {	
+				currFrame.sudokuFrame[row][col] = possibilities[posIter];
 				
 				//We now increment the col/row values for the next recursion
-				if(col<(frame.gridLength - 1)) newCol=col+1; 
-				else if(col==(frame.gridLength - 1)){
-					if(row==(frame.gridLength - 1)) return 1; //this means success
-					newRow=row+1;
-					newCol=0;
+				currFrame.updateRowCol();
+				currFrame.findNextRowCol();
+				auto res = parallelSolve(currFrame, threadId);
+
+				// Solution found (local or global)
+				if(res != no_solution){
+					return res;
 				}
 
-				{
-
-					if(singleCellSolve(newRow,newCol)==0){ //If wrong, clear frame and start over
-						frame.clearFrameFrom(newRow,newCol);
-					}
-					else return 1;
-
-				} //Recursion block ends here
-
-				} //Loop ends here
-
-			return 0;
-			
-		} //The isEditable() if block ends here.
-		else{
-
-			int newRow=row, newCol=col;
-			
-			//Same incrementing of the col/row values
-			if(col<(frame.gridLength - 1)) newCol=col+1;
-			else if(col==(frame.gridLength - 1)){
-				if(row==(frame.gridLength - 1)) return 1;
-				newRow=row+1;
-				newCol=0;
+				// Backtrack
+				currFrame.findPrevRowCol();
+				currFrame.sudokuFrame[row][col] = 0;
 			}
 
-			return singleCellSolve(newRow,newCol);
+			return no_solution;
+		}
+		else{
+			// Seek first editable chunk
+			currFrame.findNextRowCol();
 
-		} //The else block ends here
+			return parallelSolve(currFrame, threadId);
+		}
+	}
+	
+	// Populates stack by expanding topmost grid in stack in BFS fashion
+	bool populateStackBFS(int fillSize) {
+		std::vector<int> currPossibilities;
+		SudokuFrame grid;
+		int count = 0;
 
+		while(gridStack.size() < fillSize && count < fillSize) {
+			if (gridStack.size() > 0) {
+				grid = SudokuFrame(gridStack.top());
+				printToggle("grid frame length: %ld\n", grid.editableFrame.size());
+				gridStack.pop();
+				printToggle("grid frame length after pop: %ld\n", grid.editableFrame.size());
+			} else {
+				perror("Grid stack empty");
+				return false;
+			}
+
+			printToggle("About to check editable frame...\n");
+			// printf("row before: %d, col before: %d\n", grid.row, grid.col);
+			if (grid.findNextRowCol()) {
+				// printf("row after: %d, col after: %d\n", grid.row, grid.col);
+				int row = grid.row;
+				int col = grid.col;
+				// printf("About to check possibilities...\n");
+				currPossibilities = getCellPossibilities(grid);
+				// printf("Found %ld possibilities...\n", currPossibilities.size());
+
+				// Push new grids onto stack
+				for (auto value : currPossibilities) {
+					SudokuFrame newFrame = SudokuFrame(grid);
+					newFrame.sudokuFrame[row][col] = value;
+					newFrame.startRow = row;
+					newFrame.startCol = col;
+					newFrame.updateRowCol();
+					gridStack.push(newFrame);
+					// printf("Gridstack size: %d\n", gridStack.size());
+				}
+			}
+			count++;
+		}	
+
+		return true;
 	}
 
 	/**
@@ -481,8 +746,62 @@ private:
 	  *	@param none
 	  *	@return none
 	*/
-	void solve(){
-		int success=singleCellSolve(0,0);
+	SudokuFrame solve(SudokuFrame &originalFrame) {
+		// Create final grid
+		SudokuFrame finalFrame;
+
+		// Populate stack initially
+		printf("About to push to stack originally...\n");
+		gridStack.push(originalFrame);
+		printf("Pushed to stack...\n");
+		populateStackBFS(NUM_PROCESSORS);
+		printf("Populated stack to size: %ld\n", gridStack.size());
+
+		// Solve sudoku
+		#pragma omp parallel shared(isSolved, gridStack, needMoreGrids, finalFrame) num_threads(NUM_PROCESSORS)
+		{
+			// Local variables
+			SudokuFrame localFrame;
+			solType localIsSolved = none;
+			int threadId = omp_get_thread_num();
+			bool localNeedMoreGrids = false;
+
+			while (!isSolved) {
+				#pragma omp critical
+				{
+					if (gridStack.size() > 0) {
+						localFrame = gridStack.top(); gridStack.pop();
+						if (localNeedMoreGrids) {
+							localNeedMoreGrids = false;
+							needMoreGrids--;
+						}
+					} else {
+						localNeedMoreGrids = true;
+						needMoreGrids++;
+					}
+				}
+
+				// Solve the local frame
+				// printf("Solving...\n");
+				if (!localNeedMoreGrids) {
+					localIsSolved = parallelSolve(localFrame, threadId);
+				}
+
+				if (localIsSolved == local_solution) {
+					#pragma omp critical
+					{
+						isSolved = true;
+						// printf("Solved frame:\n");
+						// localFrame.displayFrame();
+						finalFrame = SudokuFrame(localFrame);
+					}
+				}
+			}
+		}
+
+		// Delete variables
+
+		return finalFrame;
 	}
 	
 	/**
@@ -520,11 +839,11 @@ public:
 		cout<<"\nCalculating possibilities...\n";
 		cout<<"Backtracking across puzzle....\n";
 		cout<<"Validating cells and values...\n\n";
-		
-		solve();
+
+		auto finalFrame = solve(frame);
 		cout<<"QED. Your puzzle has been solved!\n\n";
-		displayFrame();
-		frame.outputGrid();
+		finalFrame.displayFrame();
+		finalFrame.outputGrid();
 
 		cout<<"\n\n";
 	}

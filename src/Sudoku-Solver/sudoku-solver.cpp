@@ -13,18 +13,28 @@
 #include<cmath>
 #include<stack>
 #include<vector>
-#include<set>
+#include<unordered_set>
 #include<omp.h>
+#include<cassert>
 #include "../timing.h"
 // #define  printToggle(...) (printf(__VA_ARGS__))
 #define  printToggle(...) (0)
 using namespace std;
 
-const int NUM_PROCESSORS = 8;
+const int NUM_PROCESSORS = 16;
+const int CACHE_LINE_SIZE = 64;
+int STOP_DEPTH = 0;
 enum solType { no_solution, local_solution, global_solution, none };
-// const int NO_SOLUTION = 0;
-// const int LOCAL_SOLUTION = 1;
-// const int GLOBAL_SOLUTION = 2;
+
+struct paddedBool {
+	bool isSolved;
+	char padding[CACHE_LINE_SIZE - (sizeof(bool) % CACHE_LINE_SIZE)];
+};
+
+struct paddedInt {
+	int needMoreGrids;
+	char padding[CACHE_LINE_SIZE - (sizeof(int) % CACHE_LINE_SIZE)];
+};
 
 /**	
   *	This class provides a data structure which can hold and manipulate the values in a sudoku puzzle.
@@ -47,6 +57,7 @@ public:
 	int row = 0;
 	int col = 0;
 	int gridLength = 0;
+	int depth = 0;
 
 	/**	
 	  *	@desc This constructor calls the menu() func to provide the menu.
@@ -117,6 +128,7 @@ public:
 	// 	delete[] sudokuFrame;
 	// }
 
+	// Includes current index
 	bool findNextRowCol() {
 		while (row < gridLength && !editableFrame[row][col]) {
 			updateRowCol();
@@ -125,18 +137,20 @@ public:
 		return row < gridLength;
 	}
 
+	// Excludes current index
 	bool findPrevRowCol() {
 		decrementRowCol();
-		while (row >= 0 && !editableFrame[row][col]) {
+		while ((row > startRow || col >= startCol) && !editableFrame[row][col]) {
 			decrementRowCol();
 		}
 
-		return row >= 0;
+		return row > startRow || col >= startCol;
 	}
 	
 	bool updateRowCol() {
 		col = (col + 1) % gridLength;
 		row = row + (1 ? col == 0 : 0);
+		depth++;
 
 		return row < gridLength;
 	}
@@ -144,12 +158,13 @@ public:
 	inline bool decrementRowCol() {
 		col = (col + gridLength - 1) % gridLength;
 		row = row - (1 ? col == (gridLength - 1) : 0);
+		depth--;
 		return row >= 0;
 	}
 
-	inline int getDepth() {
-		return row * gridLength + col;
-	}
+	// inline int getDepth() {
+	// 	return row * gridLength + col;
+	// }
 
 	void inputGrid() {
 		std::cin >> gridLength;
@@ -448,9 +463,12 @@ private:
 	SudokuFrame frame; //The frame object
 
 	// Create shared variables
-	bool isSolved = false;
-	int needMoreGrids = 0;
+	// bool isSolved = false;
+	paddedBool isSolved[NUM_PROCESSORS];
+	paddedInt needMoreGrids[NUM_PROCESSORS];
+	// int needMoreGrids = 0;
 	std::stack<SudokuFrame> gridStack;
+	omp_lock_t stackLock;
 
 	/**
 	  *	@desc Checks if the value in the specified cell is valid or not.
@@ -512,32 +530,13 @@ private:
 		return true;	
 	}
 	
-	// /**
-	//   *	@desc Gets the possible values and assigns them to the possibilities list.
-	//   *	@param row (int) row of the specified cell
-	//   *	@param col (int) col of the specified cell
-	//   *	@return (Possibilities) Possibilities object containing all the possible values.
-	// */
-	// Possibilities getCellPossibilities(int row, int col){
-	// 	int iter=0;
-
-	// 	Possibilities possibilities;
-
-	// 	for(iter=1; iter<=frame.gridLength; iter++){
-	// 		if(cellValueValid(row,col,iter)==true)
-	// 			possibilities.append(iter);
-	// 	}
-
-	// 	return possibilities;
-	// }
-
 	std::vector<int> getCellPossibilities(SudokuFrame &currFrame){
 		int iter = 0;
 		int row = currFrame.row;
 		int col = currFrame.col;
 
 		std::vector<int> possibilities;
-		std::set<int> possibilitiesSet;
+		std::unordered_set<int> possibilitiesSet;
 
 		// Add all items to set initially
 		for (int i = 1; i <= currFrame.gridLength; i++) {
@@ -580,82 +579,48 @@ private:
 		return possibilities;
 	}
 	
-	// /**	
-	//   *	@desc The recursive function which does all the work, this iterates over the
-	//   *	possible values for the specified cell one-by-one. Once a value has been filled, it
-	//   *	goes to the next cell. Here, the same thing happens. If none of the possible values
-	//   *	work out, then the function backtracks to the previous cell.
-  	//   *
-	//   *	@param row (int) row of the specified cell
-	//   *	@param col (int) col of the specified cell
-	//   *	@return (int) whether the value put in the cell made it a SUCCESS or NOT
-	// */
-	// int singleCellSolve(SudokuFrame &currFrame, int row, int col) {
-		
-	// 	statsIncrement(); //This is used to see how many times the func is called.
-
-	// 	if(frame.isEditable(row,col)==true){
-
-	// 		Possibilities possibilities;
-	// 		possibilities.copy(getCellPossibilities(row,col));
-
-	// 		int posLength=possibilities.length();
-	// 		int newRow=row, newCol=col;
-
-	// 		for(int posIter=0; posIter<posLength; posIter++){ //We iter over the possible values
-	// 			int possibility=possibilities[posIter];
-	// 			frame.setCellValue(row,col,possibility);
-				
-	// 			//We now increment the col/row values for the next recursion
-	// 			if(col<(frame.gridLength - 1)) newCol=col+1; 
-	// 			else if(col==(frame.gridLength - 1)){
-	// 				if(row==(frame.gridLength - 1)) return 1; //this means success
-	// 				newRow=row+1;
-	// 				newCol=0;
-	// 			}
-
-	// 			{
-
-	// 				if(singleCellSolve(newRow,newCol)==0){ //If wrong, clear frame and start over
-	// 					frame.clearFrameFrom(newRow,newCol);
-	// 				}
-	// 				else return 1;
-
-	// 			} //Recursion block ends here
-
-	// 			} //Loop ends here
-
-	// 		return 0;
-			
-	// 	} //The isEditable() if block ends here.
-	// 	else{
-
-	// 		int newRow=row, newCol=col;
-			
-	// 		//Same incrementing of the col/row values
-	// 		if(col<(frame.gridLength - 1)) newCol=col+1;
-	// 		else if(col==(frame.gridLength - 1)){
-	// 			if(row==(frame.gridLength - 1)) return 1;
-	// 			newRow=row+1;
-	// 			newCol=0;
-	// 		}
-
-	// 		return singleCellSolve(newRow,newCol);
-
-	// 	} //The else block ends here
-
-	// }
-
 	solType parallelSolve(SudokuFrame &currFrame, int threadId) {
 		
-		if (isSolved) {
+		if (isSolved[threadId].isSolved) {
 			// Another thread has a valid solution
 			return global_solution;
-		} else if (currFrame.row == currFrame.gridLength && currFrame.col == 0) {
+		} else if (currFrame.row >= currFrame.gridLength) {
 			// We have a valid solution
-			// currFrame.displayFrame();
-			// auto temp = std::cin.get();
 			return local_solution;
+		}
+
+		// Add grids to stack if previous thread needs; test-and-test-and-set
+		if (currFrame.depth < STOP_DEPTH && needMoreGrids[(threadId + NUM_PROCESSORS - 1) % NUM_PROCESSORS].needMoreGrids > 0) {
+			omp_set_lock(&stackLock);
+			if (needMoreGrids[(threadId + NUM_PROCESSORS - 1) % NUM_PROCESSORS].needMoreGrids > 0) {
+				// printf("Adding grids to stack. needMoreGrids = %d\n", needMoreGrids);
+				gridStack.push(currFrame);
+				auto gridSol = populateStackBFS(needMoreGrids[(threadId + NUM_PROCESSORS - 1) % NUM_PROCESSORS].needMoreGrids + 1);
+
+				auto newFrame = std::move(gridStack.top()); gridStack.pop();
+
+				auto framesAdded = gridStack.size();
+				// printf("framesAdded: %d\n", framesAdded);
+				for (int i = 0; i < NUM_PROCESSORS - 1; i++) {
+					if (framesAdded <= 0) {
+						break;
+					} else if (needMoreGrids[(threadId + NUM_PROCESSORS - 1 - i) % NUM_PROCESSORS].needMoreGrids > 0) {
+						#pragma omp atomic
+						needMoreGrids[(threadId + NUM_PROCESSORS - 1 - i) % NUM_PROCESSORS].needMoreGrids -= 1;
+						framesAdded--;
+					}
+				}
+
+				omp_unset_lock(&stackLock);
+				if (gridSol == none) {
+					return parallelSolve(newFrame, threadId);
+				} else {
+					// local solution or no solution
+					return gridSol;
+				}
+			} else {
+				omp_unset_lock(&stackLock);
+			}
 		}
 
 		// Try a value in an editable cell
@@ -664,9 +629,6 @@ private:
 		if(currFrame.editableFrame[row][col]) {
 
 			std::vector<int> possibilities = getCellPossibilities(currFrame);
-			// if (threadId == 0) {
-			// 	printf("(%d, %d)\n", row, col);
-			// }
 
 			// Iterate over possible values
 			for(int posIter = 0; posIter < possibilities.size(); posIter++) {	
@@ -689,7 +651,7 @@ private:
 
 			return no_solution;
 		}
-		else{
+		else {
 			// Seek first editable chunk
 			currFrame.findNextRowCol();
 
@@ -697,21 +659,28 @@ private:
 		}
 	}
 	
-	// Populates stack by expanding topmost grid in stack in BFS fashion
-	bool populateStackBFS(int fillSize) {
+	// Populates stack by expanding topmost grid in stack in BFS fashion; if no grids are added, returns solType of grid
+	solType populateStackBFS(int fillSize) {
 		std::vector<int> currPossibilities;
 		SudokuFrame grid;
-		int count = 0;
+		// int filledAmount = 0;
 
-		while(gridStack.size() < fillSize && count < fillSize) {
+		if (gridStack.size() == 0) {
+			perror("Grid stack empty");
+			return none;
+		}
+
+		while(gridStack.size() < fillSize) {
 			if (gridStack.size() > 0) {
-				grid = SudokuFrame(gridStack.top());
+				grid = std::move(SudokuFrame(gridStack.top()));
 				printToggle("grid frame length: %ld\n", grid.editableFrame.size());
 				gridStack.pop();
+				// filledAmount -= 1;
 				printToggle("grid frame length after pop: %ld\n", grid.editableFrame.size());
 			} else {
-				perror("Grid stack empty");
-				return false;
+				// No more grids on the stack; no_solution
+				gridStack.push(grid);
+				return no_solution;
 			}
 
 			printToggle("About to check editable frame...\n");
@@ -728,17 +697,24 @@ private:
 				for (auto value : currPossibilities) {
 					SudokuFrame newFrame = SudokuFrame(grid);
 					newFrame.sudokuFrame[row][col] = value;
-					newFrame.startRow = row;
-					newFrame.startCol = col;
 					newFrame.updateRowCol();
-					gridStack.push(newFrame);
+					newFrame.findNextRowCol();
+					newFrame.startRow = newFrame.row; // Set to first index newFrame can edit
+					newFrame.startCol = newFrame.col;
+					gridStack.push(std::move(newFrame));
 					// printf("Gridstack size: %d\n", gridStack.size());
 				}
-			}
-			count++;
-		}	
 
-		return true;
+				// filledAmount += currPossibilities.size();
+			} else {
+				// Found solution board; push back on and return
+				gridStack.push(std::move(grid));
+				return local_solution;
+			}
+		}	
+		// printf("grid stack size: %d\n", gridStack.size());
+
+		return none;
 	}
 
 	/**
@@ -749,6 +725,9 @@ private:
 	SudokuFrame solve(SudokuFrame &originalFrame) {
 		// Create final grid
 		SudokuFrame finalFrame;
+		Timer solveTimer;
+		omp_init_lock(&stackLock);
+		STOP_DEPTH = (int)((float)(originalFrame.gridLength * originalFrame.gridLength) * (2.f / 8.f));
 
 		// Populate stack initially
 		printf("About to push to stack originally...\n");
@@ -758,48 +737,72 @@ private:
 		printf("Populated stack to size: %ld\n", gridStack.size());
 
 		// Solve sudoku
-		#pragma omp parallel shared(isSolved, gridStack, needMoreGrids, finalFrame) num_threads(NUM_PROCESSORS)
+		#pragma omp parallel shared(isSolved, gridStack, needMoreGrids, finalFrame, stackLock) num_threads(NUM_PROCESSORS)
 		{
 			// Local variables
 			SudokuFrame localFrame;
 			solType localIsSolved = none;
 			int threadId = omp_get_thread_num();
+			isSolved[threadId].isSolved = false;
+			needMoreGrids[threadId].needMoreGrids = 0;
 			bool localNeedMoreGrids = false;
 
-			while (!isSolved) {
-				#pragma omp critical
-				{
+			if (threadId == 0) {
+				printf("Each thread got their first grid...\n");
+				printf("Number of threads: %d\n", omp_get_num_threads());
+				assert(omp_get_num_threads() == NUM_PROCESSORS);
+			}
+
+			#pragma omp barrier
+			while (!isSolved[threadId].isSolved) {
+
+				if (needMoreGrids[threadId].needMoreGrids == 0) {
+					omp_set_lock(&stackLock);
+					// printf("Set lock at address: %x\n", &stackLock);
 					if (gridStack.size() > 0) {
-						localFrame = gridStack.top(); gridStack.pop();
-						if (localNeedMoreGrids) {
-							localNeedMoreGrids = false;
-							needMoreGrids--;
-						}
-					} else {
+						localFrame = std::move(gridStack.top()); gridStack.pop();
+						localNeedMoreGrids = false;
+					} 
+					else if (localNeedMoreGrids == false) {
 						localNeedMoreGrids = true;
-						needMoreGrids++;
+						#pragma omp atomic
+						needMoreGrids[threadId].needMoreGrids++;
 					}
+					omp_unset_lock(&stackLock);
+				} else if (localNeedMoreGrids == false) {
+					localNeedMoreGrids = true;
+					#pragma omp atomic
+					needMoreGrids[threadId].needMoreGrids++;
 				}
 
-				// Solve the local frame
-				// printf("Solving...\n");
 				if (!localNeedMoreGrids) {
+					// printf("Solving...\n");
+					// localFrame.displayFrame();
+					// printf("\n");
 					localIsSolved = parallelSolve(localFrame, threadId);
+					// localFrame.displayFrame();
+					// printf("Finished Solving... got code: %d \n", localIsSolved);
 				}
 
 				if (localIsSolved == local_solution) {
 					#pragma omp critical
 					{
-						isSolved = true;
-						// printf("Solved frame:\n");
+						printf("Solved frame in %ds:\n", solveTimer.elapsed());
 						// localFrame.displayFrame();
-						finalFrame = SudokuFrame(localFrame);
+						finalFrame = std::move(localFrame);
+						// finalFrame = SudokuFrame(localFrame);
+					}
+					// Set all "isSolved" to true
+					for (int i = 0; i < NUM_PROCESSORS; i++) {
+						#pragma omp atomic write
+						isSolved[i].isSolved = true;
 					}
 				}
 			}
 		}
 
 		// Delete variables
+		omp_destroy_lock(&stackLock);
 
 		return finalFrame;
 	}

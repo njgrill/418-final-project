@@ -19,10 +19,13 @@
 #include "../timing.h"
 // #define  printToggle(...) (printf(__VA_ARGS__))
 #define  printToggle(...) (0)
+#define VALMASK 0x7f
+#define EDITMASK 0x80 // cell is editable if this bit is NOT SET
 using namespace std;
 
 const int NUM_PROCESSORS = 16;
 const int CACHE_LINE_SIZE = 64;
+const int ITERATIONS_FOR_AVG = 50;
 int STOP_DEPTH = 0;
 enum solType { no_solution, local_solution, global_solution, none };
 
@@ -47,17 +50,16 @@ private:
 	std::string outputFile;
 
 public:
-
-	// int** sudokuFrame; //This pointer will hold all the values in the matrix.
-	// bool** editableFrame; //This pointer will tell us all the values which are editable.
-	std::vector<std::vector<int>> sudokuFrame; //This pointer will hold all the values in the matrix.
-	std::vector<std::vector<bool>> editableFrame; //This pointer will tell us all the values which are editable.
-	int startRow = 0;	// This is how far back the backtracking should go before taking new board from the stack
-	int startCol = 0;	// ......................................................................................
-	int row = 0;
-	int col = 0;
-	int gridLength = 0;
-	int depth = 0;
+	//This pointer will hold all the values in the matrix
+	std::vector<std::vector<char>> sudokuFrame;
+	// note: the editable frame has been wrapped into each cell's MSB
+	// note: using chars limits the row/col range to <= 127, but that shouldn't be an issue
+	char startRow = 0;	// This is how far back the backtracking should go before taking new board from the stack
+	char startCol = 0;	// ......................................................................................
+	char row = 0;
+	char col = 0;
+	char gridLength = 0;
+	char depth = 0;
 
 	/**	
 	  *	@desc This constructor calls the menu() func to provide the menu.
@@ -76,61 +78,48 @@ public:
 		startCol = oldFrame.startCol;
 		row = oldFrame.row;
 		col = oldFrame.col;
+		//editableFrame = oldFrame.editableFrame;
 		sudokuFrame.resize(gridLength);
-		editableFrame.resize(gridLength);
-
+		//editableFrame.resize(gridLength);
+		
 		for (int row = 0; row < gridLength; row++) {
 			sudokuFrame[row].resize(gridLength);
-			editableFrame[row].resize(gridLength);
+			//editableFrame[row].resize(gridLength);
 			for (int col = 0; col < gridLength; col++) {
 				sudokuFrame[row][col] = oldFrame.sudokuFrame[row][col];
-				editableFrame[row][col] = oldFrame.editableFrame[row][col];
+				//editableFrame[row][col] = oldFrame.editableFrame[row][col];
 			}
 		}
 	}
 
-	// // Copy constructor
-	// SudokuFrame(const SudokuFrame &oldFrame) {
-	// 	printToggle("Calling copy constructor...\n");
-	// 	gridLength = oldFrame.gridLength;
-	// 	startRow = oldFrame.startRow;
-	// 	startCol = oldFrame.startCol;
-	// 	row = oldFrame.row;
-	// 	col = oldFrame.col;
-	// 	sudokuFrame = new int*[gridLength];
-	// 	editableFrame = new bool*[gridLength];
-
-	// 	for (int row = 0; row < gridLength; row++) {
-	// 		sudokuFrame[row] = new int[gridLength];
-	// 		editableFrame[row] = new bool[gridLength];
-	// 		for (int col = 0; col < gridLength; col++) {
-	// 			sudokuFrame[row][col] = oldFrame.sudokuFrame[row][col];
-	// 			editableFrame[row][col] = oldFrame.editableFrame[row][col];
-	// 		}
-	// 	}
-	// }
-
 	~SudokuFrame() {
 		printToggle("Calling delete constructor...\n");
 	}
-	// ~SudokuFrame() {
-	// 	printToggle("Calling delete constructor...\n");
-	// 	if (gridLength == 0) {
-	// 		return;
-	// 	}
 
-	// 	for (int row = 0; row < gridLength; row++) {
-	// 		delete[] editableFrame[row];
-	// 		delete[] sudokuFrame[row];
-	// 	}
-		
-	// 	delete[] editableFrame;
-	// 	delete[] sudokuFrame;
-	// }
+	/**
+	  *	@desc Returns if cell is editable.
+	  *	@param row (int) row of the required cell
+ 	  *	@param col (int) col of the required cell
+	  *	@return 1 if editable; 0 if not
+	*/
+	bool isEditable(int row, int col){
+		return ((sudokuFrame[row][col] & EDITMASK) != EDITMASK);
+	}
+
+	/**	
+	  *	@desc Returns the value of the cell at the specified row and col.
+	  *	@param row (int) row of the specified cell
+	  *	@param col (int) col of the specified cell
+	  *	@return (int) cellValue value at the specified cell
+	*/
+	int getCellValue(int row, int col){
+		int cellValue = (int)(sudokuFrame[row][col] & VALMASK);
+		return cellValue;
+	}
 
 	// Includes current index
 	bool findNextRowCol() {
-		while (row < gridLength && !editableFrame[row][col]) {
+		while (row < gridLength && !(isEditable(row, col))) {
 			updateRowCol();
 		}
 
@@ -140,7 +129,7 @@ public:
 	// Excludes current index
 	bool findPrevRowCol() {
 		decrementRowCol();
-		while ((row > startRow || col >= startCol) && !editableFrame[row][col]) {
+		while ((row > startRow || col >= startCol) && !isEditable(row, col)) {
 			decrementRowCol();
 		}
 
@@ -162,40 +151,29 @@ public:
 		return row >= 0;
 	}
 
-	// inline int getDepth() {
-	// 	return row * gridLength + col;
-	// }
-
 	void inputGrid() {
-		std::cin >> gridLength;
+		int cinValue;
+		std::cin >> cinValue;
+		gridLength = (char)cinValue;
 		sudokuFrame.resize(gridLength);
-		editableFrame.resize(gridLength);
-
-		for (int row = 0; row < gridLength; row++) {
+		//editableFrame.resize(gridLength);
+		for (char row = 0; row < gridLength; row++) {
 			sudokuFrame[row].resize(gridLength);
-			editableFrame[row].resize(gridLength);
-			for (int col = 0; col < gridLength; col++) {
-				std::cin >> sudokuFrame[row][col];
-				editableFrame[row][col] = true ? (sudokuFrame[row][col] == 0) : false;
+			//editableFrame[row].resize(gridLength);
+			for (char col = 0; col < gridLength; col++) {
+				int cinValue;
+				std::cin >> cinValue;
+				if (cinValue != 0) {
+					sudokuFrame[row][col] = (char)cinValue + EDITMASK;
+				}
+				else {
+					sudokuFrame[row][col] = 0;
+				}
+				//editableFrame[row][col] = true ? (sudokuFrame[row][col] == 0) : false;
 			}
 		}
 		printf("Input grid successful\n");
 	}
-	// void inputGrid() {
-	// 	std::cin >> gridLength;
-	// 	sudokuFrame = new int*[gridLength];
-	// 	editableFrame = new bool*[gridLength];
-
-	// 	for (int row = 0; row < gridLength; row++) {
-	// 		sudokuFrame[row] = new int[gridLength];
-	// 		editableFrame[row] = new bool[gridLength];
-	// 		for (int col = 0; col < gridLength; col++) {
-	// 			std::cin >> sudokuFrame[row][col];
-	// 			editableFrame[row][col] = true ? (sudokuFrame[row][col] == 0) : false;
-	// 		}
-	// 	}
-	// 	printToggle("Input grid successful\n");
-	// }
 
 	void outputGrid() {
 		ofstream myfile;
@@ -204,7 +182,7 @@ public:
 		myfile << gridLength << std::endl;
 		for (int i = 0; i < gridLength; i++) {
 			for (int j = 0; j < gridLength; j++) {
-				myfile << sudokuFrame[i][j] << " ";
+				myfile << getCellValue(i,j) << " ";
 			}
 			myfile << std::endl;
 		}
@@ -212,36 +190,6 @@ public:
 		myfile.close();
 	}
 	
-	/**
-	  *	@desc Assigns the passed-in number to the specified row and col.
-	  *	@param row (int) row of the specified cell
-	  *	@param col (int) col of the specified cell
-	  *	@return none
-	*/
-	void setCellValue(int row, int col, int num){
-		if(editableFrame[row][col]) sudokuFrame[row][col]=num;
-	}
-	
-	/**	
-	  *	@desc Returns the value of the cell at the specified row and col.
-	  *	@param row (int) row of the specified cell
-	  *	@param col (int) col of the specified cell
-	  *	@return (int) cellValue value at the specified cell
-	*/
-	int getCellValue(int row, int col){
-		int cellValue=sudokuFrame[row][col];
-		return cellValue;
-	}
-	
-	/**
-	  *	@desc Returns 0/1 depending on editableFrame values.
-	  *	@param row (int) row of the required cell
- 	  *	@param col (int) col of the required cell
-	  *	@return (int) 1 if editable; 0 if not
-	*/
-	int isEditable(int row, int col){
-		return editableFrame[row][col];
-	}
 
 	/**
 	  *	@desc Clears frame of all values, other than the question values, from
@@ -259,7 +207,7 @@ public:
 			else colIter=0;
 
 			for(; colIter<gridLength; colIter++){
-				if(editableFrame[rowIter][colIter]) sudokuFrame[rowIter][colIter]=0;
+				if(isEditable(rowIter, colIter)) sudokuFrame[rowIter][colIter]=0;
 			}
 
 			jcount++;
@@ -270,32 +218,66 @@ public:
 	/**
 	  *	@desc Displays the values stored in the frame with designs. We also use
 	  *	ANSI colors, using escape sequences, to display the frame.
+	  * Note: this is hardcoded for 2-digit wide numbers (in decimal)
 	  *	@param none
 	  *	@return none
 	*/
 	void displayFrame(){
+		
+		int gridRoot = (int)(sqrt(gridLength));
+		
+		// assuming that for each subgrid row:
+		// 4 spaces per cell (includes front and back padding)
+		// 2 spaces per subgrid delineation
+		// 2 spaces (negative) for the end '++'s
+		
+		int dashWidth = 4 * gridRoot;
+		int eqWidth = gridRoot * (dashWidth + 2) - 2;
+		
+		// generate "++==...==++" thing
+		cout << "\033[0;36m++";
+		for (int i = 0; i < eqWidth; i++) cout << '=';
+		cout << "++";
 
-		cout<<"\033[0;36m++=====================================++";
 		int rowIter, colIter;
-
 		for(rowIter=0; rowIter<gridLength; rowIter++){
 			int cellIter=1;
 
 			cout<<"\n\033[0;36m||";
 			for(colIter=0; colIter<gridLength; colIter++){
-				if(cellIter==3){
-					cout<<"\033[0m "<<sudokuFrame[rowIter][colIter]<<" ";
+				
+				// note: this assumes 2-digit wideness
+				if ((int)getCellValue(rowIter,colIter) < 10) {
+					cout<<"\033[0m "<<(int)getCellValue(rowIter,colIter)<<"  ";
+				}
+				else {
+					cout<<"\033[0m "<<(int)getCellValue(rowIter,colIter)<<" ";
+				}
+
+				if(cellIter == gridRoot){
 					cout<<"\033[0;36m||";
 					cellIter=1;
 				}
 				else{
-					cout<<"\033[0m "<<sudokuFrame[rowIter][colIter]<<"  ";
 					cellIter++;	
 				}
 			}
 
-			if(rowIter%3!=2) cout<<"\n\033[0;36m++-----------++-----------++-----------++";
-			else cout<<"\n\033[0;36m++=====================================++";
+			if ((rowIter % gridRoot) != (gridRoot - 1)) {
+				cout << "\n\033[0;36m++";
+				for (int i = 0; i < gridRoot; i++) {
+					for (int j = 0; j < dashWidth; j++) {
+						cout << '-';
+					}
+					cout << "++";
+				}
+			}
+			else {
+				// generate "++==...==++" thing
+				cout << "\n\033[0;36m++";
+				for(int i = 0; i < eqWidth; i++) cout << '=';
+				cout << "++";
+			}
 		}
 
 	}
@@ -312,8 +294,8 @@ class Possibilities{
 private:
 
 	struct node{
-		int value;
 		struct node* next;
+		char value;
 	}; //The struct for the node
 	
 	typedef struct node* Node;
@@ -396,8 +378,7 @@ public:
 		return -1;
 	}
 
-	/**	print()
-
+	/**	
 	  *	@desc Prints the values inside all the nodes of the linked list.
 	  *	@param none
 	  *	@return none
@@ -485,14 +466,14 @@ private:
 		//Checking if value exists in same column
 		for(rowIter=0; rowIter < currFrame.gridLength; rowIter++){
 			if(rowIter != row){
-				if (currFrame.sudokuFrame[rowIter][col] == currentValue) return false;
+				if (currFrame.getCellValue(rowIter,col) == currentValue) return false;
 			}
 		}
 
 		//Checking if value exists in same row
 		for(colIter = 0; colIter < frame.gridLength; colIter++){
 			if(colIter != col){
-				if (currFrame.sudokuFrame[row][colIter] == currentValue) return false;
+				if (currFrame.getCellValue(row,colIter) == currentValue) return false;
 			}
 		}
 
@@ -523,7 +504,7 @@ private:
 
 		for(rowIter=rowStart; rowIter<=rowEnd; rowIter++){
 			for(colIter=colStart; colIter<=colEnd; colIter++){
-				if((rowIter != row || colIter != col) && currFrame.sudokuFrame[rowIter][colIter] == currentValue) return false;
+				if((rowIter != row || colIter != col) && currFrame.getCellValue(rowIter,colIter) == currentValue) return false;
 			}
 		}
 
@@ -546,14 +527,14 @@ private:
 		// Removing values in same column
 		for(int rowIter = 0; rowIter < currFrame.gridLength; rowIter++){
 			if(rowIter != row){
-				possibilitiesSet.erase(currFrame.sudokuFrame[rowIter][col]);
+				possibilitiesSet.erase(currFrame.getCellValue(rowIter,col));
 			}
 		}
 
 		// Remoiving values in same row
 		for(int colIter = 0; colIter < frame.gridLength; colIter++){
 			if(colIter != col){
-				possibilitiesSet.erase(currFrame.sudokuFrame[row][colIter]);
+				possibilitiesSet.erase(currFrame.getCellValue(row,colIter));
 			}
 		}
 
@@ -567,7 +548,7 @@ private:
 		for(int rowIter = rowStart; rowIter <= rowEnd; rowIter++){
 			for(int colIter = colStart; colIter <= colEnd; colIter++){
 				if (rowIter != row || colIter != col) {
-					possibilitiesSet.erase(currFrame.sudokuFrame[rowIter][colIter]);
+					possibilitiesSet.erase(currFrame.getCellValue(rowIter,colIter));
 				}
 			}
 		}
@@ -626,7 +607,7 @@ private:
 		// Try a value in an editable cell
 		int row = currFrame.row;
 		int col = currFrame.col;
-		if(currFrame.editableFrame[row][col]) {
+		if(currFrame.isEditable(row,col)) {
 
 			std::vector<int> possibilities = getCellPossibilities(currFrame);
 
@@ -673,10 +654,10 @@ private:
 		while(gridStack.size() < fillSize) {
 			if (gridStack.size() > 0) {
 				grid = std::move(SudokuFrame(gridStack.top()));
-				printToggle("grid frame length: %ld\n", grid.editableFrame.size());
+				printToggle("grid frame length: %ld\n", grid.sudokuFrame.size());
 				gridStack.pop();
 				// filledAmount -= 1;
-				printToggle("grid frame length after pop: %ld\n", grid.editableFrame.size());
+				printToggle("grid frame length after pop: %ld\n", grid.sudokuFrame.size());
 			} else {
 				// No more grids on the stack; no_solution
 				gridStack.push(grid);
@@ -722,7 +703,7 @@ private:
 	  *	@param none
 	  *	@return none
 	*/
-	SudokuFrame solve(SudokuFrame &originalFrame) {
+	SudokuFrame solve(SudokuFrame &originalFrame, bool printInfo) {
 		// Create final grid
 		SudokuFrame finalFrame;
 		Timer solveTimer;
@@ -730,11 +711,11 @@ private:
 		STOP_DEPTH = (int)((float)(originalFrame.gridLength * originalFrame.gridLength) * (2.f / 8.f));
 
 		// Populate stack initially
-		printf("About to push to stack originally...\n");
+		if (printInfo) printf("About to push to stack originally...\n");
 		gridStack.push(originalFrame);
-		printf("Pushed to stack...\n");
+		if (printInfo) printf("Pushed to stack...\n");
 		populateStackBFS(NUM_PROCESSORS);
-		printf("Populated stack to size: %ld\n", gridStack.size());
+		if (printInfo) printf("Populated stack to size: %ld\n", gridStack.size());
 
 		// Solve sudoku
 		#pragma omp parallel shared(isSolved, gridStack, needMoreGrids, finalFrame, stackLock) num_threads(NUM_PROCESSORS)
@@ -748,8 +729,8 @@ private:
 			bool localNeedMoreGrids = false;
 
 			if (threadId == 0) {
-				printf("Each thread got their first grid...\n");
-				printf("Number of threads: %d\n", omp_get_num_threads());
+				if (printInfo) printf("Each thread got their first grid...\n");
+				if (printInfo) printf("Number of threads: %d\n", omp_get_num_threads());
 				assert(omp_get_num_threads() == NUM_PROCESSORS);
 			}
 
@@ -787,7 +768,7 @@ private:
 				if (localIsSolved == local_solution) {
 					#pragma omp critical
 					{
-						printf("Solved frame in %ds:\n", solveTimer.elapsed());
+						if (printInfo) printf("Solved frame in %.6fs:\n", solveTimer.elapsed());
 						// localFrame.displayFrame();
 						finalFrame = std::move(localFrame);
 						// finalFrame = SudokuFrame(localFrame);
@@ -843,7 +824,7 @@ public:
 		cout<<"Backtracking across puzzle....\n";
 		cout<<"Validating cells and values...\n\n";
 
-		auto finalFrame = solve(frame);
+		auto finalFrame = solve(frame, true);
 		cout<<"QED. Your puzzle has been solved!\n\n";
 		finalFrame.displayFrame();
 		finalFrame.outputGrid();
@@ -854,6 +835,21 @@ public:
 	// ~SudokuSolver() {
 	// 	frame
 	// }
+
+	void printAvgTime(int iters) {
+		printf("\nCalculating Avg Solve Time (%d iterations)\n", iters);
+		double summedTime = 0.0;
+		for (int i = 0; i < iters; i++) {
+			Timer oneSolve;
+			solve(frame, false);
+			double oneSolveTime = oneSolve.elapsed();
+			printf(" Iter %d Solve Time: %.6fs\n", i, oneSolveTime); 
+			summedTime += oneSolveTime;
+		}
+		double avgTime = summedTime / iters;
+		printf("\nAverage Solve Time (%d iterations): %.6fs\n", 
+			iters, avgTime);
+	}
 	
 	/**
 	  *	@desc This displays the number of times recursion has happened.
@@ -875,8 +871,12 @@ int main(int argc, char *argv[]){
 
 	cout << outputFile << std::endl;
 
+	// perform one solving, determine solve time
 	Timer totalSolveTimer;
-	SudokuSolver ss(outputFile);
-	printf("Total solve time: %.6fs\n", totalSolveTimer.elapsed());
+	SudokuSolver sudSol(outputFile);
+	printf("Total time: %.6fs\n", totalSolveTimer.elapsed());
+	
+	// calculate & print average solve time
+	sudSol.printAvgTime(ITERATIONS_FOR_AVG);
 	return 0;
 }

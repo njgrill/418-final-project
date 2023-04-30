@@ -11,57 +11,8 @@
 #include<iostream>
 #include<fstream>
 #include<cmath>
+#include "../SudokuFrame.cpp"
 using namespace std;
-
-class SudokuFrame{
-
-	public:int gridLength;
-	int** sudokuFrame;
-
-	public:SudokuFrame(){
-		inputGrid();
-	}
-
-	~SudokuFrame() {
-		for (int row = 0; row < gridLength; row++) {
-			delete[] sudokuFrame[row];
-		}
-		
-		delete[] sudokuFrame;
-	}
-
-	private:void inputGrid() {
-		std::cin >> gridLength;
-		sudokuFrame = new int*[gridLength];
-
-		for (int row = 0; row < gridLength; row++) {
-			sudokuFrame[row] = new int[gridLength];
-			for (int col = 0; col < gridLength; col++) {
-				std::cin >> sudokuFrame[row][col];
-			}
-		}
-	}
-
-	/**
-	  *	@desc Returns the value of a cell of a specified col and row.
-	  *	@param row (int) The specified row.
-	  *	@param col (int) The specified column.
-	  *	@return The value in the specified cell.
-	 */
-	public:inline int getCellValue(int row, int col){
-		return sudokuFrame[row][col];
-	}
-
-	public:void printGrid() {
-		for (int i = 0; i < gridLength; i++) {
-			for (int j = 0; j < gridLength; j++) {
-				std::cout << sudokuFrame[i][j] << " ";
-			}
-			std::cout << std::endl;
-		}
-	}
-};
-
 
 class SudokuValidator{
 

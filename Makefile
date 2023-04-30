@@ -5,22 +5,23 @@ CFLAGS := -std=c++14 -fvisibility=hidden -lpthread -O2 -fopenmp
 SOURCES := src/Sudoku-Generator/*.cpp src/Sudoku-Solver/*.cpp src/Sudoku-Validator/*.cpp src/*.cpp
 # HEADERS := src/Sudoku-Generator/*.h src/Sudoku-Solver/*.h src/Sudoku-Validator/*.h src/*.h
 HEADERS := src/*.h
+SOURCES_FOR_ALL := src/SudokuFrame.cpp
 
 .SUFFIXES:
 .PHONY: all clean
 
 all: sudoku-generator sudoku-solver-seq sudoku-solver sudoku-validator
 
-sudoku-generator: $(HEADERS) src/Sudoku-Generator/sudoku-generator.cpp
+sudoku-generator: $(HEADERS) $(SOURCES_FOR_ALL) src/Sudoku-Generator/sudoku-generator.cpp
 	$(CXX) -o $@ $(CFLAGS) src/Sudoku-Generator/sudoku-generator.cpp
 
-sudoku-solver-seq: $(HEADERS) src/Sudoku-Solver/sudoku-solver-seq.cpp
+sudoku-solver-seq: $(HEADERS) $(SOURCES_FOR_ALL) src/Sudoku-Solver/sudoku-solver-seq.cpp
 	$(CXX) -o $@ $(CFLAGS) src/Sudoku-Solver/sudoku-solver-seq.cpp
 
-sudoku-solver: $(HEADERS) src/Sudoku-Solver/sudoku-solver.cpp
+sudoku-solver: $(HEADERS) $(SOURCES_FOR_ALL) src/Sudoku-Solver/sudoku-solver.cpp
 	$(CXX) -o $@ $(CFLAGS) src/Sudoku-Solver/sudoku-solver.cpp
 
-sudoku-validator: $(HEADERS) src/Sudoku-Validator/*.cpp
+sudoku-validator: $(HEADERS) $(SOURCES_FOR_ALL) src/Sudoku-Validator/*.cpp
 	$(CXX) -o $@ $(CFLAGS) src/Sudoku-Validator/*.cpp
 
 format:

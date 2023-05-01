@@ -142,7 +142,7 @@ private:
 		}
 
 		// Remoiving values in same row
-		for(int colIter = 0; colIter < frame.gridLength; colIter++){
+		for(char colIter = 0; colIter < frame.gridLength; colIter++){
 			if(colIter != col){
 				possibilitiesSet.erase(currFrame.getCellValue(row,colIter));
 			}

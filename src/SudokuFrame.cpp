@@ -116,10 +116,15 @@ public:
 	// Excludes current index
 	bool findPrevRowCol() {
 		decrementRowCol();
-		while ((row > startRow || col >= startCol) && !isEditable(row, col)) {
+		while ((row > startRow || (row == startRow && col >= startCol)) && !isEditable(row, col)) {
 			decrementRowCol();
 		}
 
+		// Update new endrow
+		if ((gridLength * row + col) < (gridLength * endRow + endCol)) {
+			endRow = row;
+			endCol = col;
+		}
 		return row > startRow || col >= startCol;
 	}
 	

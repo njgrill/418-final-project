@@ -127,24 +127,24 @@ private:
 		int col = currFrame.col;
 
 		std::vector<char> possibilities;
-		std::unordered_set<char> possibilitiesSet;
+		bool possibilitiesSet[currFrame.gridLength];
 
-		// Add all items to set initially
-		for (char i = 1; i <= currFrame.gridLength; i++) {
-			possibilitiesSet.insert(i);
+		// Make every element false initially
+		for (int i = 0; i < currFrame.gridLength; i++) {
+			possibilitiesSet[i] = false;
 		}
 
 		// Removing values in same column
-		for(char rowIter = 0; rowIter < currFrame.gridLength; rowIter++){
-			if(rowIter != row){
-				possibilitiesSet.erase(currFrame.getCellValue(rowIter,col));
+		for(int rowIter = 0; rowIter < currFrame.gridLength; rowIter++){
+			if(rowIter != row && currFrame.getCellValue(rowIter,col) > 0) {
+				possibilitiesSet[currFrame.getCellValue(rowIter,col) - 1] = true;
 			}
 		}
 
 		// Remoiving values in same row
-		for(char colIter = 0; colIter < frame.gridLength; colIter++){
-			if(colIter != col){
-				possibilitiesSet.erase(currFrame.getCellValue(row,colIter));
+		for(int colIter = 0; colIter < frame.gridLength; colIter++){
+			if(colIter != col && currFrame.getCellValue(row, colIter) > 0) {
+				possibilitiesSet[currFrame.getCellValue(row, colIter) - 1] = true;
 			}
 		}
 
@@ -157,30 +157,75 @@ private:
 
 		for(int rowIter = rowStart; rowIter <= rowEnd; rowIter++){
 			for(int colIter = colStart; colIter <= colEnd; colIter++){
-				if (rowIter != row || colIter != col) {
-					possibilitiesSet.erase(currFrame.getCellValue(rowIter,colIter));
+				if (rowIter != row || colIter != col && currFrame.getCellValue(rowIter,colIter)) {
+					possibilitiesSet[currFrame.getCellValue(rowIter,colIter) - 1] = true;
 				}
 			}
 		}
 
-		for (auto elem : possibilitiesSet) {
-			possibilities.push_back(elem);
+		for (int i = 0; i < currFrame.gridLength; i++) {
+			if (!possibilitiesSet[i]) {
+				possibilities.push_back((char)(i+1));
+			}
 		}
 
 		return possibilities;
 	}
 
+	// SudokuFrame stealGrid(SudokuFrame &currFrame, int numToSteal) {
+	// 	SudokuFrame newFrame = SudokuFrame();
+
+	// 	newFrame.gridLength = currFrame.gridLength;
+	// 	newFrame.startRow = currFrame.startRow;
+	// 	newFrame.startCol = currFrame.startCol;
+	// 	newFrame.row = currFrame.row;
+	// 	newFrame.col = currFrame.col;
+	// 	newFrame.setDepth();
+	// 	newFrame.endRow = currFrame.row;
+	// 	newFrame.endCol = currFrame.col;
+	// 	newFrame.sudokuFrame.resize(newFrame.gridLength);
+	// 	newFrame.possibilitiesFrame.resize(newFrame.gridLength);
+		
+	// 	for (int row = 0; row < newFrame.gridLength; row++) {
+	// 		newFrame.sudokuFrame[row].resize(newFrame.gridLength);
+	// 		newFrame.possibilitiesFrame[row].resize(newFrame.gridLength);
+	// 		for (int col = 0; col < newFrame.gridLength; col++) {			
+	// 			newFrame.sudokuFrame[row][col] = currFrame.sudokuFrame[row][col];
+	// 		}
+	// 	}
+
+	// 	// Take deepest "numToSteal" possibilities
+	// 	int row = currFrame.row;
+	// 	int col = currFrame.col;
+	// 	int stolen = 0;
+
+	// 	while ((row > currFrame.startRow || (row == currFrame.startRow && col >= currFrame.startCol)) && stolen < numToSteal) {
+	// 		if (currFrame.isEditable(row, col)) {
+	// 			int halfSize = currFrame.possibilitiesFrame[row][col].size() / 2;
+	// 			newFrame.possibilitiesFrame[row][col] = std::vector<char>(currFrame.possibilitiesFrame[row][col].begin() + halfSize, currFrame.possibilitiesFrame[row][col].end());
+	// 			currFrame.possibilitiesFrame[row][col].erase(currFrame.possibilitiesFrame[row][col].begin(), currFrame.possibilitiesFrame[row][col].begin() + halfSize);
+	// 			stolen++;
+	// 		}
+	// 		row--;
+	// 		col = (col + NUM_PROCESSORS - 1) % NUM_PROCESSORS;
+	// 	}
+
+	// 	return newFrame;
+	// }
+
 	SudokuFrame stealGrid(SudokuFrame &currFrame) {
 		SudokuFrame newFrame = SudokuFrame();
+		int row = currFrame.row;
+		int col = currFrame.col;
 
 		newFrame.gridLength = currFrame.gridLength;
-		newFrame.startRow = currFrame.startRow;
-		newFrame.startCol = currFrame.startCol;
-		newFrame.row = currFrame.row;
-		newFrame.col = currFrame.col;
+		newFrame.startRow = row;
+		newFrame.startCol = col;
+		newFrame.row = row;
+		newFrame.col = col;
 		newFrame.setDepth();
-		newFrame.endRow = currFrame.row;
-		newFrame.endCol = currFrame.col;
+		newFrame.endRow = row;
+		newFrame.endCol = col;
 		newFrame.sudokuFrame.resize(newFrame.gridLength);
 		newFrame.possibilitiesFrame.resize(newFrame.gridLength);
 		
@@ -189,11 +234,13 @@ private:
 			newFrame.possibilitiesFrame[row].resize(newFrame.gridLength);
 			for (int col = 0; col < newFrame.gridLength; col++) {			
 				newFrame.sudokuFrame[row][col] = currFrame.sudokuFrame[row][col];
-				int halfSize = currFrame.possibilitiesFrame[row][col].size() / 2;
-				newFrame.possibilitiesFrame[row][col] = std::vector<char>(currFrame.possibilitiesFrame[row][col].begin() + halfSize, currFrame.possibilitiesFrame[row][col].end());
-				currFrame.possibilitiesFrame[row][col].erase(currFrame.possibilitiesFrame[row][col].begin(), currFrame.possibilitiesFrame[row][col].begin() + halfSize);
 			}
 		}
+
+		// Steal one layer
+		int halfSize = currFrame.possibilitiesFrame[row][col].size() / 2;
+		newFrame.possibilitiesFrame[row][col] = std::vector<char>(currFrame.possibilitiesFrame[row][col].begin() + halfSize, currFrame.possibilitiesFrame[row][col].end());
+		currFrame.possibilitiesFrame[row][col].erase(currFrame.possibilitiesFrame[row][col].begin() + halfSize, currFrame.possibilitiesFrame[row][col].end());
 
 		return newFrame;
 	}
@@ -206,18 +253,22 @@ private:
 		} else if (currFrame.row >= currFrame.gridLength) {
 			// We have a valid solution
 			return local_solution;
+		} else if (currFrame.row < currFrame.startRow || (currFrame.row == currFrame.startRow && currFrame.col < currFrame.startCol)) {
+			// Went as far back as we can
+			return no_solution;
 		}
 
 		// Try a value in an editable cell
 		int row = currFrame.row;
 		int col = currFrame.col;
+		assert(row >= 0 && col >= 0 && row < currFrame.gridLength && col < currFrame.gridLength);
 		if(currFrame.isEditable(row,col)) {
 
 			// Compute new value
 			if (row > currFrame.endRow || (row == currFrame.endRow && col > currFrame.endCol)) {
 				currFrame.possibilitiesFrame[row][col] = getCellPossibilities(currFrame);
+				// printf("(row, col): (%d, %d)\n", currFrame.row, currFrame.col);
 			}
-			auto &possibilities = currFrame.possibilitiesFrame[row][col];
 
 			// Split grid if previous thread needs; test-and-test-and-set
 			// if (currFrame.getDepth() < sharedLocalVals[threadId].vals.STOP_DEPTH && sharedLocalVals[threadId].vals.needMoreGrids == true) {
@@ -239,11 +290,16 @@ private:
 				// printf("%d finished sending steal; changed %d needMoreGrids val to false\n", threadId, (threadId + NUM_PROCESSORS - 1) % NUM_PROCESSORS);
 			}
 
+			auto &possibilities = currFrame.possibilitiesFrame[row][col];
 			// Iterate over possible values
 			while (possibilities.size() > 0) {
 			// for(int posIter = 0; posIter < possibilities.size(); posIter++) {	
-				currFrame.sudokuFrame[row][col] = possibilities.back();
-				possibilities.pop_back();
+				// printf("new iteration: (%d, %d) with possibilities: [", currFrame.row, currFrame.col);
+				// for (auto elem : possibilities) {
+				// 	printf("%d, ", elem);
+				// }
+				// printf("]\n");
+				currFrame.sudokuFrame[row][col] = possibilities.back(); possibilities.pop_back();
 				
 				//We now increment the col/row values for the next recursion
 				currFrame.updateRowCol();
@@ -260,7 +316,13 @@ private:
 				currFrame.sudokuFrame[row][col] = 0;
 			}
 
-			return no_solution;
+			// No solution on this path; return if past end distance, else call parallelSolve
+			if (currFrame.row < currFrame.endRow || (currFrame.row == currFrame.endRow && currFrame.col <= currFrame.endCol)) {
+				currFrame.findPrevRowCol();
+				return parallelSolve(currFrame, threadId);
+			} else {
+				return no_solution;
+			}
 		}
 		else {
 			// Seek first editable chunk
@@ -276,6 +338,11 @@ private:
 
 		grid.findNextRowCol();
 		std::vector<char> currPossibilities = getCellPossibilities(grid);
+		// printf("possibilities: [");
+		// for (auto elem : currPossibilities) {
+		// 	printf("%d, ", elem);
+		// }
+		// printf("]\n");
 		int numLeft = numLeftInit;
 		int start = startInit;
 
@@ -285,6 +352,8 @@ private:
 				for (int i = 0; i < numLeft - 1; i++) {
 					SudokuFrame newFrame = SudokuFrame(grid);
 					newFrame.possibilitiesFrame[grid.row][grid.col] = std::vector<char>{currPossibilities.back()}; currPossibilities.pop_back();
+					newFrame.startRow = grid.row;
+					newFrame.startCol = grid.col;
 					newFrame.endRow = grid.row;
 					newFrame.endCol = grid.col;
 					sharedLocalVals[start + numLeft - i - 1].vals.grid = newFrame;
@@ -294,6 +363,8 @@ private:
 				numLeft = 1;
 				SudokuFrame newFrame = SudokuFrame(grid);
 				newFrame.possibilitiesFrame[grid.row][grid.col] = std::move(currPossibilities);
+				newFrame.startRow = grid.row;
+				newFrame.startCol = grid.col;
 				newFrame.endRow = grid.row;
 				newFrame.endCol = grid.col;
 				sharedLocalVals[start + numLeft - 1].vals.grid = newFrame;
@@ -328,7 +399,7 @@ private:
 		SudokuFrame finalFrame;
 		totalStealTime = 0;
 		totalStealCount = 0;
-		int STOP_DEPTH = (int)((float)(originalFrame.gridLength * originalFrame.gridLength) * (6.f / 8.f));
+		int STOP_DEPTH = (int)((float)(originalFrame.gridLength * originalFrame.gridLength) * (0.f / 8.f));
 		printf("STOP_DEPTH: %d\n", STOP_DEPTH);
 
 		// Solve sudoku
@@ -350,8 +421,7 @@ private:
 				// sudokuFrames[0].val = originalFrame;
 				if (printInfo) printf("Each thread got their first grid...\n");
 				if (printInfo) printf("Number of threads: %d\n", omp_get_num_threads());
-				if (printInfo) printf("Took %f.4 s to populate grids initially\n", sharedLocalVals[threadId].vals.solveTimer.elapsed());
-				// if (printInfo) sudokuFrames[0].val.displayFrame();
+				if (printInfo) printf("Took %.4f s to populate grids initially\n", sharedLocalVals[threadId].vals.solveTimer.elapsed());
 				assert(omp_get_num_threads() == NUM_PROCESSORS);
 				assert(numPopulated = NUM_PROCESSORS);
 			}
@@ -377,11 +447,13 @@ private:
 				// if (threadId == NUM_PROCESSORS - 1) { printf("needMoreGrids val for %d is %d\n", threadId, sharedLocalVals[threadId].vals.needMoreGrids); }
 
 				if (!localNeedMoreGrids) {
+					printf("%d is solving...\n", threadId);
 					localIsSolved = parallelSolve(sharedLocalVals[threadId].vals.grid, threadId);
 				}
 
 				if (localIsSolved == local_solution) {
 					if (printInfo) printf("Solved frame in %.6fs:\n", sharedLocalVals[threadId].vals.solveTimer.elapsed());
+					// if (printInfo) frame.displayFrame();
 					#pragma omp critical
 					{
 						finalFrame = std::move(sharedLocalVals[threadId].vals.grid);
@@ -392,6 +464,24 @@ private:
 						sharedLocalVals[i].vals.isSolved = true;
 					}
 				}
+
+				// if (threadId == 0) {
+				// 	bool isLoop = true;
+				// 	for (int i = 0; i < NUM_PROCESSORS; i++) {
+				// 		if (!sharedLocalVals[i].vals.needMoreGrids) {
+				// 			isLoop = false;
+				// 		}
+				// 	}
+
+				// 	if (isLoop) {
+				// 		printf("isLoop!\n");
+				// 		// Set all "isSolved" to true to exit
+				// 		for (int i = 0; i < NUM_PROCESSORS; i++) {
+				// 			#pragma omp atomic write
+				// 			sharedLocalVals[i].vals.isSolved = true;
+				// 		}
+				// 	}
+				// }
 			}
 		}
 
@@ -433,10 +523,6 @@ public:
 
 		cout<<"\n\n";
 	}
-
-	// ~SudokuSolver() {
-	// 	frame
-	// }
 
 	void printAvgTime(int iters) {
 		printf("\nCalculating Avg Solve Time (%d iterations)\n", iters);

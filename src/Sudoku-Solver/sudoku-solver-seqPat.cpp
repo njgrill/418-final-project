@@ -158,32 +158,66 @@ class SudokuFrame{
 	/**
 	  *	@desc Displays the values stored in the frame with designs. We also use
 	  *	ANSI colors, using escape sequences, to display the frame.
+	  * Note: this is hardcoded for 2-digit wide numbers (in decimal)
 	  *	@param none
 	  *	@return none
 	*/
-	public:void displayFrame(){
+	void displayFrame(){
+		
+		int gridRoot = (int)(sqrt(gridLength));
+		
+		// assuming that for each subgrid row:
+		// 4 spaces per cell (includes front and back padding)
+		// 2 spaces per subgrid delineation
+		// 2 spaces (negative) for the end '++'s
+		
+		int dashWidth = 4 * gridRoot;
+		int eqWidth = gridRoot * (dashWidth + 2) - 2;
+		
+		// generate "++==...==++" thing
+		cout << "\033[0;36m++";
+		for (int i = 0; i < eqWidth; i++) cout << '=';
+		cout << "++";
 
-		cout<<"\033[0;36m++=====================================++";
 		int rowIter, colIter;
-
 		for(rowIter=0; rowIter<gridLength; rowIter++){
 			int cellIter=1;
 
 			cout<<"\n\033[0;36m||";
 			for(colIter=0; colIter<gridLength; colIter++){
-				if(cellIter==3){
-					cout<<"\033[0m "<<sudokuFrame[rowIter][colIter]<<" ";
+				
+				// note: this assumes 2-digit wideness
+				if ((int)getCellValue(rowIter,colIter) < 10) {
+					cout<<"\033[0m "<<(int)getCellValue(rowIter,colIter)<<"  ";
+				}
+				else {
+					cout<<"\033[0m "<<(int)getCellValue(rowIter,colIter)<<" ";
+				}
+
+				if(cellIter == gridRoot){
 					cout<<"\033[0;36m||";
 					cellIter=1;
 				}
 				else{
-					cout<<"\033[0m "<<sudokuFrame[rowIter][colIter]<<"  ";
 					cellIter++;	
 				}
 			}
 
-			if(rowIter%3!=2) cout<<"\n\033[0;36m++-----------++-----------++-----------++";
-			else cout<<"\n\033[0;36m++=====================================++";
+			if ((rowIter % gridRoot) != (gridRoot - 1)) {
+				cout << "\n\033[0;36m++";
+				for (int i = 0; i < gridRoot; i++) {
+					for (int j = 0; j < dashWidth; j++) {
+						cout << '-';
+					}
+					cout << "++";
+				}
+			}
+			else {
+				// generate "++==...==++" thing
+				cout << "\n\033[0;36m++";
+				for(int i = 0; i < eqWidth; i++) cout << '=';
+				cout << "++";
+			}
 		}
 
 	}
@@ -597,7 +631,7 @@ class SudokuSolver{
 						frame.setCellValue(row,col,gridPoss[row][col][0]);
 						frame.setNotEditable(row, col);
 						gridPoss[row][col].copy(getCellPossibilities(row, col));
-						//cout << "R" << row << "C" << col << " - Elim - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
+						cout << "R" << row << "C" << col << " - Elim - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
 					}
 				}
 			}
@@ -677,7 +711,7 @@ class SudokuSolver{
 						unchanged = false;
 						frame.setCellValue(row, col, i + 1);
 						frame.setNotEditable(row, col);
-						//cout << "R" << row << "C" << col << " - LR(Row) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
+						cout << "R" << row << "C" << col << " - LR(Row) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
 						
 					}
 					
@@ -694,7 +728,7 @@ class SudokuSolver{
 						unchanged = false;
 						frame.setCellValue(row, col, i + 1);
 						frame.setNotEditable(row, col);
-						//cout << "R" << row << "C" << col << " - LR(Col) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
+						cout << "R" << row << "C" << col << " - LR(Col) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
 					}
 				}
 			}
@@ -713,7 +747,7 @@ class SudokuSolver{
 						unchanged = false;
 						frame.setCellValue(row, col, i + 1);
 						frame.setNotEditable(row, col);
-						//cout << "R" << row << "C" << col << " - LR(subGrid) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
+						cout << "R" << row << "C" << col << " - LR(subGrid) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
 					}
 				}
 			}

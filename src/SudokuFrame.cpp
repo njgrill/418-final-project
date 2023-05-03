@@ -93,6 +93,17 @@ public:
 		return ((sudokuFrame[row][col] & EDITMASK) != EDITMASK);
 	}
 
+	/**
+	  *	@desc Sets cell to not editable.
+	  *	@param row (int) row of the required cell
+ 	  *	@param col (int) col of the required cell
+	  *	@return N/A
+	*/
+	void setNotEditable(int row, int col){
+		sudokuFrame[row][col] = sudokuFrame[row][col] | EDITMASK;
+		return;
+	}
+
 	/**	
 	  *	@desc Returns the value of the cell at the specified row and col.
 	  *	@param row (int) row of the specified cell
@@ -102,6 +113,19 @@ public:
 	int getCellValue(int row, int col){
 		int cellValue = (int)(sudokuFrame[row][col] & VALMASK);
 		return cellValue;
+	}
+
+	/**	
+	  *	@desc Returns the value of the cell at the specified row and col.
+	  *	@param row (int) row of the specified cell
+	  *	@param col (int) col of the specified cell
+	  *	@return (int) cellValue value at the specified cell
+	*/
+	void setCellValue(int row, int col, char cellValue){
+		if(isEditable(row,col)){
+			sudokuFrame[row][col] = (cellValue & VALMASK);
+		}
+		return;
 	}
 
 	// Includes current index
@@ -271,7 +295,7 @@ public:
 				cout << "++";
 			}
 		}
-
+		cout << "\n";
 	}
 	
 };

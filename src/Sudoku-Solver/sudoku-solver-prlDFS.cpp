@@ -17,6 +17,21 @@ const int CACHE_LINE_SIZE = 64;
 const int ITERATIONS_FOR_AVG = 50;
 enum solType { no_solution, local_solution, global_solution, none };
 
+// struct paddedBool {
+// 	bool val;
+// 	char padding[CACHE_LINE_SIZE - (sizeof(bool) % CACHE_LINE_SIZE)];
+// };
+
+// struct paddedInt {
+// 	int val;
+// 	char padding[CACHE_LINE_SIZE - (sizeof(int) % CACHE_LINE_SIZE)];
+// };
+
+// struct paddedSudokuFrame {
+// 	SudokuFrame val;
+// 	char padding[CACHE_LINE_SIZE - (sizeof(SudokuFrame) % CACHE_LINE_SIZE)];
+// };
+
 struct sharedVals {
 	bool needMoreGrids;
 	bool isSolved;
@@ -37,6 +52,10 @@ class SudokuSolver{
 	
 private:
 	SudokuFrame frame; //The frame object
+
+	// paddedBool isSolved[NUM_PROCESSORS];
+	// paddedBool needMoreGrids[NUM_PROCESSORS];
+	// paddedSudokuFrame sudokuFrames[NUM_PROCESSORS];
 	paddedSharedVals sharedLocalVals[NUM_PROCESSORS];
 	// int STOP_DEPTH = 0;
 	float totalStealTime;
@@ -153,23 +172,6 @@ private:
 		return possibilities;
 	}
 
-	std::vector<char> getCellPossibilities(SudokuFrame &currFrame, char row, char col){
-
-		std::vector<char> output;
-		
-		if (frame.isEditable(row, col)) {
-			char oldRow = currFrame.row;
-			char oldCol = currFrame.col;
-			currFrame.row = row;
-			currFrame.col = col;
-			output = getCellPossibilities(currFrame);
-			currFrame.row = oldRow;
-			currFrame.col = oldCol;		
-		}
-
-		return output;
-	}
-
 	// SudokuFrame stealGrid(SudokuFrame &currFrame, int numToSteal) {
 	// 	SudokuFrame newFrame = SudokuFrame();
 
@@ -244,7 +246,7 @@ private:
 	}
 	
 	solType parallelSolve(SudokuFrame &currFrame, int threadId) {
-
+		
 		if (sharedLocalVals[threadId].vals.isSolved) {
 			// Another thread has a valid solution
 			return global_solution;
@@ -332,19 +334,22 @@ private:
 
 	// Returns how many grids were populated
 	int populateGridsInit(SudokuFrame &grid, int startInit, int numLeftInit) {
-		
 		// Check if we've found a solution
 		if (!grid.findNextRowCol()) {
 			return -1;
 		}
 
 		std::vector<char> currPossibilities = getCellPossibilities(grid);
+		// printf("possibilities: [");
+		// for (auto elem : currPossibilities) {
+		// 	printf("%d, ", elem);
+		// }
+		// printf("]\n");
 		int numLeft = numLeftInit;
 		int start = startInit;
-		
+
 		while (currPossibilities.size() > 0 && numLeft > 0) {
 			// Divide up possibilities and return
-			
 			if (numLeft <= currPossibilities.size()) {
 				for (int i = 0; i < numLeft - 1; i++) {
 					SudokuFrame newFrame = SudokuFrame(grid);
@@ -391,7 +396,7 @@ private:
 	}
 
 	/**
-	  *	@desc Calls the parallelSolve() func and prints a success/fail mesg.
+	  *	@desc Calls the singleCellSolve() func and prints a success/fail mesg.
 	  *	@param none
 	  *	@return none
 	*/
@@ -437,7 +442,7 @@ private:
 				}
 
 				if (printInfo) printf("Each thread got their first grid...\n");
-				if (printInfo) printf("Number of threads: %d / numPopulated: %d\n", omp_get_num_threads(), numPopulated);
+				if (printInfo) printf("Number of threads: %d\n", omp_get_num_threads());
 				if (printInfo) printf("Took %.4f s to populate grids initially\n", sharedLocalVals[threadId].vals.solveTimer.elapsed());
 				assert(omp_get_num_threads() == NUM_PROCESSORS);
 				assert(numPopulated = NUM_PROCESSORS);
@@ -475,216 +480,36 @@ private:
 					{
 						finalFrame = std::move(sharedLocalVals[threadId].vals.grid);
 					}
-					// Set all "isSolved" to true to exit
+					// Set all "isSolved" to true
 					for (int i = 0; i < NUM_PROCESSORS; i++) {
 						#pragma omp atomic write
 						sharedLocalVals[i].vals.isSolved = true;
 					}
 				}
+
+				// if (threadId == 0) {
+				// 	bool isLoop = true;
+				// 	for (int i = 0; i < NUM_PROCESSORS; i++) {
+				// 		if (!sharedLocalVals[i].vals.needMoreGrids) {
+				// 			isLoop = false;
+				// 		}
+				// 	}
+
+				// 	if (isLoop) {
+				// 		printf("isLoop!\n");
+				// 		// Set all "isSolved" to true to exit
+				// 		for (int i = 0; i < NUM_PROCESSORS; i++) {
+				// 			#pragma omp atomic write
+				// 			sharedLocalVals[i].vals.isSolved = true;
+				// 		}
+				// 	}
+				// }
 			}
 		}
 
 		if (printInfo) printf("Total steal time: %.4fs\n", totalStealTime);
 		if (printInfo) printf("Total steal count: %d\n", totalStealCount);
 		return finalFrame;
-	}
-
-	/**
-	  *	@desc Uses patterns in rows/cols/subgrids to eliminate possibilities.
-	  *	@param none
-	  *	@return none
-	*/
-	void patternSolve(SudokuFrame &frame, bool printInfo){
-
-		//initialize useful vars
-		
-		int gridLen = frame.gridLength;
-		int subGridLen = (int)(sqrt(gridLen));
-		std::vector<std::vector<std::vector<char>>> gridPoss;		
-		
-		// iterate for each cell
-		gridPoss.resize(gridLen);
-		for (int row = 0; row < gridLen; row++) {
-			gridPoss[row].resize(gridLen);
-			for (int col = 0; col < gridLen; col++) {
-				gridPoss[row][col] = getCellPossibilities(frame, row, col);	
-			}
-		}
-
-		// the main loop begins
-		bool unchanged = false;
-		while(!unchanged){
-			unchanged = true;
-
-			// Apply single-elimination
-			for (int row = 0; row < gridLen; row++) {
-				for (int col = 0; col < gridLen; col++) {
-					if(gridPoss[row][col].size() == 1){
-						unchanged = false;
-						frame.setCellValue(row,col,(char)gridPoss[row][col][0]);
-						frame.setNotEditable(row, col);
-						gridPoss[row][col] = getCellPossibilities(frame, row, col);
-					}
-				}
-			}
-
-			// update possibilities
-			for (char row = 0; row < gridLen; row++) {
-				for (char col = 0; col < gridLen; col++) {
-					gridPoss[row][col] = getCellPossibilities(frame, row, col);
-				}
-			}
-
-			// Apply lone rangers (LRs)
-			// printf("begin LRs\n");
-			// init columns arrays and subGrid arrays
-			// index1 = colNum / subGrid
-			// index2 = 0 to (gridLen-1) value (add 1 for cell value)
-			// value = row / subGrid of LR, or NA (-2 or -1)
-			char **checkCol = new char*[gridLen];
-			char **checkSub = new char*[gridLen];
-			for (int i = 0; i < gridLen; i++) {
-				checkCol[i] = new char[gridLen];
-				checkSub[i] = new char[gridLen];
-				for (int j = 0; j < gridLen; j++) {
-					checkCol[i][j] = -2;
-					checkSub[i][j] = -2;
-				}
-			}
-			
-			// check by rows first
-			// index = 0 to (gridLen-1) value (add 1 for cell value)
-			// value = column of LR, or NA
-			char *checkRow = new char[gridLen]; 
-			 
-			for (int row = 0; row < gridLen; row++) {
-				
-				// initialize array to zeroes
-				for (int i = 0; i < gridLen; i++){
-					checkRow[i] = -2;
-				}
-
-				// iterate over columns
-				for (int col = 0; col < gridLen; col++) {
-
-					int subGridInd = ((row / subGridLen) * subGridLen) 
-						+ (col / subGridLen);
-
-					// go through each cell to count possibilities.
-					for (int i = 0; i < gridPoss[row][col].size(); i++) {
-						int possVal = gridPoss[row][col][i] - 1; 
-
-						// update row array
-						if (checkRow[possVal] == -2) {
-							checkRow[possVal] = col;
-						}
-						else { 
-							checkRow[possVal] = -1;
-						}
-
-						// save to column array to check later
-						if (checkCol[col][possVal] == -2) {
-							checkCol[col][possVal] = row;
-						}
-						else { 
-							checkCol[col][possVal] = -1;
-						}
-
-						// save to subGrid array to check later
-						if (checkSub[subGridInd][possVal] == -2) {
-							checkSub[subGridInd][possVal] = (row % subGridLen) 
-								* subGridLen + (col % subGridLen);
-						}
-						else { 
-							checkSub[subGridInd][possVal] = -1;
-						}
-					}
-				}
-
-				// if no duplicates, it's altering time
-				for (int i = 0; i < gridLen; i++){ // i = possibility value
-					if (checkRow[i] != -2 && checkRow[i] != -1) {
-						int col = checkRow[i];
-						unchanged = false;
-						frame.setCellValue(row, col, (char)(i + 1));
-						frame.setNotEditable(row, col);
-						// cout << "R" << row << "C" << col << " - LR(Row) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].size() << "\n";
-					}
-					
-				}	
-			}
-
-			// check columns
-			for (int col = 0; col < gridLen; col++) {
-				
-				// if no duplicates, it's altering time
-				for (int i = 0; i < gridLen; i++){ // i = possibility value
-					if (checkCol[col][i] != -2 && checkCol[col][i] != -1) {
-						int row = checkCol[col][i];
-						unchanged = false;
-						frame.setCellValue(row, col, (char)(i + 1));
-						frame.setNotEditable(row, col);
-						// cout << "R" << row << "C" << col << " - LR(Col) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].size() << "\n";
-					}
-				}
-			}
-
-			// check subGrids
-			for (int subGrid = 0; subGrid < gridLen; subGrid++) {
-				// if no duplicates, it's altering time
-				for (int i = 0; i < gridLen; i++){ // i = possibility value
-					if (checkSub[subGrid][i] != -2 && checkSub[subGrid][i] != -1) {
-						// calculate true row/col 
-						int rawVal = checkSub[subGrid][i];
-						int row = rawVal / subGridLen + 
-							(subGrid / subGridLen) * subGridLen;
-						int col = rawVal % subGridLen +
-							(subGrid % subGridLen) * subGridLen;
-						unchanged = false;
-						frame.setCellValue(row, col, (char)(i + 1));
-						frame.setNotEditable(row, col);
-					}
-				}
-			}
-			
-			// delete arrays
-			delete[] checkRow;
-			for (int i = 0; i < gridLen; i++) {
-				delete[] checkCol[i];
-				delete[] checkSub[i];
-			}
-			delete[] checkCol;
-			delete[] checkSub;
-
-			// restart loop if changed
-			if (!unchanged){
-				//updatePoss();
-				for (int row = 0; row < gridLen; row++) {
-					for (int col = 0; col < gridLen; col++) {
-						gridPoss[row][col] = getCellPossibilities(frame, row, col);
-					}
-				}
-				continue;
-			}
-
-		}
-		
-		// a check for if the patterns have already solved the puzzle 
-		bool isSolved = true;
-		
-		for (int row = 0; row < gridLen && isSolved; row++) {
-			for (int col = 0; col < gridLen && isSolved; col++) {
-				if (frame.getCellValue(row, col) == 0){
-					isSolved = false;
-				}
-			}
-		}
-		
-		if (isSolved) { 
-			cout << "Solved after pattern application!\n";
-		}
-		
-		//return frame;
 	}
 	
 	/**
@@ -709,9 +534,7 @@ public:
 		frame = SudokuFrame(outputFile);
 		frame.inputGrid();
 
-		cout<<"\nApplying patterns...\n";
-		patternSolve(frame, true);
-		//displayFrame();
+		cout<<"\nCalculating possibilities...\n";
 		cout<<"Backtracking across puzzle....\n";
 		cout<<"Validating cells and values...\n\n";
 

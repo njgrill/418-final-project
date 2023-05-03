@@ -10,7 +10,7 @@ SOURCES_FOR_ALL := src/SudokuFrame.cpp
 .SUFFIXES:
 .PHONY: all clean
 
-all: sudoku-generator sudoku-solver-seqBF sudoku-solver-seqPat sudoku-solver-prlBF sudoku-solver sudoku-validator
+all: sudoku-generator sudoku-solver-seqBF sudoku-solver-seqPat sudoku-solver-prlBF sudoku-solver-prlDFS sudoku-solver sudoku-validator
 
 sudoku-generator: $(HEADERS) $(SOURCES_FOR_ALL) src/Sudoku-Generator/sudoku-generator.cpp
 	$(CXX) -o $@ $(CFLAGS) src/Sudoku-Generator/sudoku-generator.cpp
@@ -23,6 +23,9 @@ sudoku-solver-seqPat: $(HEADERS) $(SOURCES_FOR_ALL) src/Sudoku-Solver/sudoku-sol
 
 sudoku-solver-prlBF: $(HEADERS) $(SOURCES_FOR_ALL) src/Sudoku-Solver/sudoku-solver-prlBF.cpp
 	$(CXX) -o $@ $(CFLAGS) src/Sudoku-Solver/sudoku-solver-prlBF.cpp
+
+sudoku-solver-prlDFS: $(HEADERS) $(SOURCES_FOR_ALL) src/Sudoku-Solver/sudoku-solver-prlDFS.cpp
+	$(CXX) -o $@ $(CFLAGS) src/Sudoku-Solver/sudoku-solver-prlDFS.cpp
 
 sudoku-solver: $(HEADERS) $(SOURCES_FOR_ALL) src/Sudoku-Solver/sudoku-solver.cpp
 	$(CXX) -o $@ $(CFLAGS) src/Sudoku-Solver/sudoku-solver.cpp

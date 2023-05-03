@@ -154,7 +154,8 @@ public:
 	
 	bool updateRowCol() {
 		col = (col + 1) % gridLength;
-		row = row + (1 ? col == 0 : 0);
+		// row = row + (1 ? col == 0 : 0);
+		row = row + (col == 0 ? 1 : 0);
 		depth++;
 
 		return row < gridLength;
@@ -162,7 +163,8 @@ public:
 
 	inline bool decrementRowCol() {
 		col = (col + gridLength - 1) % gridLength;
-		row = row - (1 ? col == (gridLength - 1) : 0);
+		// row = row - (1 ? col == (gridLength - 1) : 0);
+		row = row - (col == (gridLength - 1) ? 1 : 0);
 		depth--;
 		return row >= 0;
 	}

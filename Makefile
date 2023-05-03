@@ -1,5 +1,6 @@
 OUTPUTDIR := bin/
 
+# CFLAGS := -g -std=c++14 -fvisibility=hidden -lpthread -O0 -fopenmp
 CFLAGS := -g -std=c++14 -fvisibility=hidden -lpthread -O2 -fopenmp
 
 SOURCES := src/Sudoku-Generator/*.cpp src/Sudoku-Solver/*.cpp src/Sudoku-Validator/*.cpp src/*.cpp

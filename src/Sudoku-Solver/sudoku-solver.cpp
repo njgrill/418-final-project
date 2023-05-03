@@ -334,9 +334,11 @@ private:
 
 	// Returns how many grids were populated
 	int populateGridsInit(SudokuFrame &grid, int startInit, int numLeftInit) {
-		// SudokuFrame &grid = originalFrame;
+		// Check if we've found a solution
+		if (!grid.findNextRowCol()) {
+			return -1;
+		}
 
-		grid.findNextRowCol();
 		std::vector<char> currPossibilities = getCellPossibilities(grid);
 		// printf("possibilities: [");
 		// for (auto elem : currPossibilities) {
@@ -377,6 +379,11 @@ private:
 			grid.sudokuFrame[grid.row][grid.col] = currPossibilities.back(); currPossibilities.pop_back();
 			grid.updateRowCol();
 			auto numPopulated = populateGridsInit(grid, start, numLeft - currPossibilities.size());
+
+			if (numPopulated == -1) {
+				return -1;
+			}
+
 			start += numPopulated;
 			numLeft -= numPopulated;
 
@@ -415,10 +422,25 @@ private:
 			bool localNeedMoreGrids = false;
 			bool firstRun = true;
 
+			#pragma omp barrier
 			if (threadId == 0) {
 				// Populate grids initially
 				int numPopulated = populateGridsInit(originalFrame, 0, NUM_PROCESSORS);
-				// sudokuFrames[0].val = originalFrame;
+
+				// Check if solution has already been found
+				if (numPopulated == -1) {
+					if (printInfo) printf("Solved frame in %.6fs:\n", sharedLocalVals[threadId].vals.solveTimer.elapsed());
+					#pragma omp critical
+					{
+						finalFrame = std::move(originalFrame);
+					}
+					// Set all "isSolved" to true
+					for (int i = 0; i < NUM_PROCESSORS; i++) {
+						#pragma omp atomic write
+						sharedLocalVals[i].vals.isSolved = true;
+					}
+				}
+
 				if (printInfo) printf("Each thread got their first grid...\n");
 				if (printInfo) printf("Number of threads: %d\n", omp_get_num_threads());
 				if (printInfo) printf("Took %.4f s to populate grids initially\n", sharedLocalVals[threadId].vals.solveTimer.elapsed());

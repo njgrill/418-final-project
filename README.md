@@ -1,8 +1,10 @@
 # Parallel Sudoku Solver
 #### By: Kevin Song and Nicholas Grill
 
-### URL
-[https://github.com/njgrill/418-final-project](https://github.com/njgrill/418-final-project)
+### URLs
+GitHub: [https://github.com/njgrill/418-final-project](https://github.com/njgrill/418-final-project)
+
+Final Report: [https://github.com/njgrill/418-final-project/blob/main/418%20Final%20Report.pdf](https://github.com/njgrill/418-final-project/blob/main/418%20Final%20Report.pdf)
 
 ### Summary
 We plan to use a multi-stage algorithm, where we first determine which numbers are valid for each square (based on patterns found in the initially given field), then rely on a brute-force algorithm to determine a full solution. We plan to use OpenMP to indicate parallel tasks on the usual multi-core GHC machines.

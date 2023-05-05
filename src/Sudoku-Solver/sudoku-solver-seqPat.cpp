@@ -20,8 +20,7 @@ using namespace std;
 */
 class SudokuFrame{
 	
-	// std::string outputFile = "outputs/output.txt";
-	std::string outputFile;
+	std::string outputFile; // defaults to "outputs/output.txt";
 	public:int gridLength = 0;
 	int** sudokuFrame; //This pointer will hold all the values in the matrix.
 	bool** editableFrame; //This pointer will tell us all the values which are editable.
@@ -110,16 +109,6 @@ class SudokuFrame{
 	public:int isEditable(int row, int col){
 		return editableFrame[row][col];
 	}
-
-	/**
-	  *	@desc sets editableFrame value to 1 (unlock value)??
-	  *	@param row (int) row of the required cell
- 	  *	@param col (int) col of the required cell
-	  *	@return none
-	*/
-	/*public:void setIsEditable(int row, int col){
-		editableFrame[row][col] = 1;
-	}*/
 
 	/**
 	  *	@desc sets editableFrame value to 0 (lock value).
@@ -422,10 +411,6 @@ class SudokuSolver{
 		cout<<"\n\n";
 	}
 
-	// public:~SudokuSolver() {
-	// 	frame
-	// }
-	
 	/**
 	  *	@desc Checks if the value in the specified cell is valid or not.
 	  *	@param row (int) row of the required value
@@ -523,9 +508,7 @@ class SudokuSolver{
 
 		if(frame.isEditable(row,col)==true){
 
-			//Possibilities possibilities; // TODO: rm
 			Possibilities possibilities;
-			//possibilities.copy(gridPoss[row][col]);
 			possibilities.copy(getCellPossibilities(row,col));
 
 			int posLength=possibilities.length();
@@ -631,7 +614,6 @@ class SudokuSolver{
 						frame.setCellValue(row,col,gridPoss[row][col][0]);
 						frame.setNotEditable(row, col);
 						gridPoss[row][col].copy(getCellPossibilities(row, col));
-						cout << "R" << row << "C" << col << " - Elim - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
 					}
 				}
 			}
@@ -711,8 +693,6 @@ class SudokuSolver{
 						unchanged = false;
 						frame.setCellValue(row, col, i + 1);
 						frame.setNotEditable(row, col);
-						cout << "R" << row << "C" << col << " - LR(Row) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
-						
 					}
 					
 				}	
@@ -728,7 +708,6 @@ class SudokuSolver{
 						unchanged = false;
 						frame.setCellValue(row, col, i + 1);
 						frame.setNotEditable(row, col);
-						cout << "R" << row << "C" << col << " - LR(Col) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
 					}
 				}
 			}
@@ -747,7 +726,6 @@ class SudokuSolver{
 						unchanged = false;
 						frame.setCellValue(row, col, i + 1);
 						frame.setNotEditable(row, col);
-						cout << "R" << row << "C" << col << " - LR(subGrid) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].length() << "\n";
 					}
 				}
 			}
@@ -826,7 +804,8 @@ int main(int argc, char *argv[]){
 	cout << outputFile << std::endl;
 
 	Timer totalSolveTimer;
-	SudokuSolver ss(outputFile);
+	SudokuSolver sudSol(outputFile);
 	printf("Total solve time: %.6fs\n", totalSolveTimer.elapsed());
+	
 	return 0;
 }

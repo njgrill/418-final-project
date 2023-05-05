@@ -37,9 +37,9 @@ struct paddedSharedVals {
 class SudokuSolver{
 	
 private:
+	
 	SudokuFrame frame, initialFrame; //The frame object
 	paddedSharedVals sharedLocalVals[NUM_PROCESSORS];
-	// int STOP_DEPTH = 0;
 	float totalStealTime;
 	int totalStealCount;
 
@@ -171,47 +171,6 @@ private:
 		return output;
 	}
 
-	// SudokuFrame stealGrid(SudokuFrame &currFrame, int numToSteal) {
-	// 	SudokuFrame newFrame = SudokuFrame();
-
-	// 	newFrame.gridLength = currFrame.gridLength;
-	// 	newFrame.startRow = currFrame.startRow;
-	// 	newFrame.startCol = currFrame.startCol;
-	// 	newFrame.row = currFrame.row;
-	// 	newFrame.col = currFrame.col;
-	// 	newFrame.setDepth();
-	// 	newFrame.endRow = currFrame.row;
-	// 	newFrame.endCol = currFrame.col;
-	// 	newFrame.sudokuFrame.resize(newFrame.gridLength);
-	// 	newFrame.possibilitiesFrame.resize(newFrame.gridLength);
-		
-	// 	for (int row = 0; row < newFrame.gridLength; row++) {
-	// 		newFrame.sudokuFrame[row].resize(newFrame.gridLength);
-	// 		newFrame.possibilitiesFrame[row].resize(newFrame.gridLength);
-	// 		for (int col = 0; col < newFrame.gridLength; col++) {			
-	// 			newFrame.sudokuFrame[row][col] = currFrame.sudokuFrame[row][col];
-	// 		}
-	// 	}
-
-	// 	// Take deepest "numToSteal" possibilities
-	// 	int row = currFrame.row;
-	// 	int col = currFrame.col;
-	// 	int stolen = 0;
-
-	// 	while ((row > currFrame.startRow || (row == currFrame.startRow && col >= currFrame.startCol)) && stolen < numToSteal) {
-	// 		if (currFrame.isEditable(row, col)) {
-	// 			int halfSize = currFrame.possibilitiesFrame[row][col].size() / 2;
-	// 			newFrame.possibilitiesFrame[row][col] = std::vector<char>(currFrame.possibilitiesFrame[row][col].begin() + halfSize, currFrame.possibilitiesFrame[row][col].end());
-	// 			currFrame.possibilitiesFrame[row][col].erase(currFrame.possibilitiesFrame[row][col].begin(), currFrame.possibilitiesFrame[row][col].begin() + halfSize);
-	// 			stolen++;
-	// 		}
-	// 		row--;
-	// 		col = (col + NUM_PROCESSORS - 1) % NUM_PROCESSORS;
-	// 	}
-
-	// 	return newFrame;
-	// }
-
 	SudokuFrame stealGrid(SudokuFrame &currFrame, int STEAL_AMOUNT) {
 		SudokuFrame newFrame = SudokuFrame();
 		int row = currFrame.row;
@@ -277,14 +236,11 @@ private:
 			// Compute new value
 			if (row > currFrame.endRow || (row == currFrame.endRow && col > currFrame.endCol)) {
 				currFrame.possibilitiesFrame[row][col] = getCellPossibilities(currFrame);
-				// printf("(row, col): (%d, %d)\n", currFrame.row, currFrame.col);
 			}
 
 			// Split grid if previous thread needs; test-and-test-and-set
-			// if (currFrame.getDepth() < sharedLocalVals[threadId].vals.STOP_DEPTH && sharedLocalVals[threadId].vals.needMoreGrids == true) {
 			if (currFrame.getDepth() < sharedLocalVals[threadId].vals.STOP_DEPTH && sharedLocalVals[threadId].vals.needMoreGrids == true) {
 				// Split grid
-				// printf("%d is sending grid\n", threadId);
 				auto beforeStealing = sharedLocalVals[threadId].vals.solveTimer.elapsed();
 				auto newGrid = stealGrid(currFrame, sharedLocalVals[threadId].vals.STEAL_AMOUNT);
 				sharedLocalVals[(threadId + NUM_PROCESSORS - 1) % NUM_PROCESSORS].vals.grid = std::move(newGrid);
@@ -294,24 +250,14 @@ private:
 				totalStealCount++;
 				#pragma atomic
 				totalStealTime += (afterStealing - beforeStealing);
-				// printf("Stealing up to depth %d took: %.6fs\n", currFrame.getDepth(), afterStealing - beforeStealing);
-				// STOP_DEPTH++;
-				// printf("STOP_DEPTH: %d\n", STOP_DEPTH);
-				// printf("%d finished sending steal; changed %d needMoreGrids val to false\n", threadId, (threadId + NUM_PROCESSORS - 1) % NUM_PROCESSORS);
 			}
 
 			auto &possibilities = currFrame.possibilitiesFrame[row][col];
 			// Iterate over possible values
 			while (possibilities.size() > 0) {
-			// for(int posIter = 0; posIter < possibilities.size(); posIter++) {	
-				// printf("new iteration: (%d, %d) with possibilities: [", currFrame.row, currFrame.col);
-				// for (auto elem : possibilities) {
-				// 	printf("%d, ", elem);
-				// }
-				// printf("]\n");
 				currFrame.sudokuFrame[row][col] = possibilities.back(); possibilities.pop_back();
 				
-				//We now increment the col/row values for the next recursion
+				// We now increment the col/row values for the next recursion
 				currFrame.updateRowCol();
 				currFrame.findNextRowCol();
 				auto res = parallelSolve(currFrame, threadId);
@@ -356,7 +302,6 @@ private:
 		
 		while (currPossibilities.size() > 0 && numLeft > 0) {
 			// Divide up possibilities and return
-			
 			if (numLeft <= currPossibilities.size()) {
 				for (int i = 0; i < numLeft - 1; i++) {
 					SudokuFrame newFrame = SudokuFrame(grid);
@@ -366,8 +311,6 @@ private:
 					newFrame.endRow = grid.row;
 					newFrame.endCol = grid.col;
 					sharedLocalVals[start + numLeft - i - 1].vals.grid = newFrame;
-					// sudokuFrames[start + numLeft - 1].val.displayFrame();
-					// printf("frame %d got populated!\n", start + numLeft - i - 1);
 				}
 				numLeft = 1;
 				SudokuFrame newFrame = SudokuFrame(grid);
@@ -377,7 +320,6 @@ private:
 				newFrame.endRow = grid.row;
 				newFrame.endCol = grid.col;
 				sharedLocalVals[start + numLeft - 1].vals.grid = newFrame;
-				// printf("frame %d got populated!\n", start + numLeft - 1);
 				numLeft--;
 				return (numLeftInit - numLeft);
 			}
@@ -415,7 +357,6 @@ private:
 		totalStealCount = 0;
 		int STOP_DEPTH = (int)((float)(originalFrame.gridLength * originalFrame.gridLength) * (8.f / 8.f));
 		int STEAL_AMOUNT = 1;
-		// bool isLoop[NUM_PROCESSORS];
 		printf("STOP_DEPTH: %d\n", STOP_DEPTH);
 		printf("STEAL_AMOUNT: %d\n", STEAL_AMOUNT);
 
@@ -431,11 +372,9 @@ private:
 			sharedLocalVals[threadId].vals.needMoreGrids = false;
 			sharedLocalVals[threadId].vals.solveTimer = Timer();
 			sharedLocalVals[threadId].vals.STOP_DEPTH = STOP_DEPTH;
-			// printf("STOP_DEPTH for process %d: %d\n", threadId, STOP_DEPTH);
 			sharedLocalVals[threadId].vals.STEAL_AMOUNT = STEAL_AMOUNT;
 			bool localNeedMoreGrids = false;
 			bool firstRun = true;
-			// bool firstRun = false;
 
 			#pragma omp barrier
 			if (threadId == 0) {
@@ -464,6 +403,7 @@ private:
 			}
 
 			#pragma omp barrier
+
 			while (!sharedLocalVals[threadId].vals.isSolved) {
 
 				if (!firstRun) {
@@ -471,10 +411,8 @@ private:
 						localNeedMoreGrids = true;
 						#pragma omp atomic write
 						sharedLocalVals[(threadId + 1) % NUM_PROCESSORS].vals.needMoreGrids = true;
-						// printf("%d needs more grids!\n", threadId);
 					} else if (localNeedMoreGrids == true && sharedLocalVals[(threadId + 1) % NUM_PROCESSORS].vals.needMoreGrids == false) {
 						// Our grid has been populated
-						// printf("%d got populated!\n", threadId);
 						localNeedMoreGrids = false;
 					}
 				} else {
@@ -482,13 +420,11 @@ private:
 				}
 
 				if (!localNeedMoreGrids) {
-					// printf("%d is solving...\n", threadId);
 					localIsSolved = parallelSolve(sharedLocalVals[threadId].vals.grid, threadId);
 				}
 
 				if (localIsSolved == local_solution) {
 					if (printInfo) printf("Solved frame in %.6fs:\n", sharedLocalVals[threadId].vals.solveTimer.elapsed());
-					// if (printInfo) frame.displayFrame();
 					#pragma omp critical
 					{
 						finalFrame = std::move(sharedLocalVals[threadId].vals.grid);
@@ -515,7 +451,6 @@ private:
 	void patternSolve(SudokuFrame &frame, bool printInfo){
 
 		//initialize useful vars
-		
 		int gridLen = frame.gridLength;
 		int subGridLen = (int)(sqrt(gridLen));
 		std::vector<std::vector<std::vector<char>>> gridPoss;		
@@ -554,7 +489,6 @@ private:
 			}
 
 			// Apply lone rangers (LRs)
-			// printf("begin LRs\n");
 			// init columns arrays and subGrid arrays
 			// index1 = colNum / subGrid
 			// index2 = 0 to (gridLen-1) value (add 1 for cell value)
@@ -626,7 +560,6 @@ private:
 						unchanged = false;
 						frame.setCellValue(row, col, (char)(i + 1));
 						frame.setNotEditable(row, col);
-						// cout << "R" << row << "C" << col << " - LR(Row) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].size() << "\n";
 					}
 					
 				}	
@@ -634,7 +567,6 @@ private:
 
 			// check columns
 			for (int col = 0; col < gridLen; col++) {
-				
 				// if no duplicates, it's altering time
 				for (int i = 0; i < gridLen; i++){ // i = possibility value
 					if (checkCol[col][i] != -2 && checkCol[col][i] != -1) {
@@ -642,7 +574,6 @@ private:
 						unchanged = false;
 						frame.setCellValue(row, col, (char)(i + 1));
 						frame.setNotEditable(row, col);
-						// cout << "R" << row << "C" << col << " - LR(Col) - Val:" << frame.getCellValue(row, col) << ", len " << gridPoss[row][col].size() << "\n";
 					}
 				}
 			}
@@ -676,7 +607,6 @@ private:
 
 			// restart loop if changed
 			if (!unchanged){
-				//updatePoss();
 				for (int row = 0; row < gridLen; row++) {
 					for (int col = 0; col < gridLen; col++) {
 						gridPoss[row][col] = getCellPossibilities(frame, row, col);
@@ -689,7 +619,6 @@ private:
 		
 		// a check for if the patterns have already solved the puzzle 
 		bool isSolved = true;
-		
 		for (int row = 0; row < gridLen && isSolved; row++) {
 			for (int col = 0; col < gridLen && isSolved; col++) {
 				if (frame.getCellValue(row, col) == 0){
@@ -697,12 +626,11 @@ private:
 				}
 			}
 		}
-		
 		if (isSolved) { 
 			cout << "Solved after pattern application!\n";
 		}
-		
-		//return frame;
+
+		return;
 	}
 	
 	/**
@@ -730,10 +658,7 @@ public:
 		cout<<"\nApplying patterns...\n";
 		frame = SudokuFrame(initialFrame);
 		patternSolve(frame, true);
-		//displayFrame();
 		cout<<"Backtracking across puzzle....\n";
-		cout<<"Validating cells and values...\n\n";
-
 		auto finalFrame = solve(frame, true);
 		cout<<"QED. Your puzzle has been solved!\n\n";
 		finalFrame.displayFrame();
@@ -788,6 +713,6 @@ int main(int argc, char *argv[]){
 	printf("Total time: %.6fs\n", totalSolveTimer.elapsed());
 	
 	// calculate & print average solve time
-	sudSol.printAvgTime(ITERATIONS_FOR_AVG);
+	// sudSol.printAvgTime(ITERATIONS_FOR_AVG);
 	return 0;
 }
